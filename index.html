@@ -22,7 +22,7 @@
     <section class="panel model-panel">
       <div>
         <h2>AI status</h2>
-        <p id="modelStatus" class="status waiting">Loading object-recognition model…</p>
+        <p id="modelStatus" class="status waiting">Loading object-recognition models…</p>
       </div>
       <button id="reloadModelBtn" class="button secondary" type="button">Reload AI</button>
     </section>
@@ -125,13 +125,14 @@
 
     <section class="panel notes">
       <h2>How the box decision works</h2>
-      <p>The vision model identifies a common object such as “cell phone,” “bottle,” “book,” “car,” or “dog.” The app compares that label and its broad category with the names and descriptions you gave your boxes. If you correct the box by tapping it, that object-to-box choice is remembered for future photos.</p>
+      <p>The vision models identify the object and, when possible, draw a labeled box around it. The app compares the recognized label and category with the names and descriptions you gave your storage boxes. If you correct the destination by tapping a box, that object-to-box choice is remembered for future photos.</p>
       <p>If your boxes are only named “Box 1,” “Box 2,” etc. with no descriptions, the app has no way to know your personal organization system on the first encounter. Tap the correct box once and it will learn that recognized object.</p>
     </section>
   </main>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
