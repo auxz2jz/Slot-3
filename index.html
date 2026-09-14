@@ -2,62 +2,65 @@
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <meta name="description" content="AI Photo Sorter categorizes photos locally in your browser using TensorFlow.js COCO-SSD." />
-  <title>AI Photo Sorter</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#0f172a" />
+  <meta name="description" content="Use your phone camera to identify an object and learn which physical storage box it belongs in." />
+  <title>AI Box Sorting Assistant</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <main class="app-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">Browser-based object recognition</p>
-        <h1>AI Photo Sorter</h1>
-        <p class="subtitle">Choose photos or a whole folder, let AI recognize the objects, then download a categorized ZIP or CSV catalog.</p>
+        <p class="eyebrow">Camera + AI object recognition</p>
+        <h1>AI Box Sorting Assistant</h1>
+        <p class="subtitle">Set up as many physical boxes as you use. Take a photo of an object and the app identifies it, labels it, and tells you which box it belongs in.</p>
       </div>
-      <div class="privacy-badge" title="Photos are analyzed in this browser tab.">
-        <span aria-hidden="true">🔒</span>
-        <span>Photos stay in your browser</span>
-      </div>
+      <div class="privacy-badge"><span aria-hidden="true">🔒</span><span>Recognition runs in your browser</span></div>
     </header>
 
-    <section class="panel" aria-labelledby="model-heading">
-      <div class="model-row">
+    <section class="panel model-panel">
+      <div>
+        <h2>AI status</h2>
+        <p id="modelStatus" class="status waiting">Loading object-recognition model…</p>
+      </div>
+      <button id="reloadModelBtn" class="button secondary" type="button">Reload AI</button>
+    </section>
+
+    <section class="panel" aria-labelledby="boxes-heading">
+      <div class="section-heading">
         <div>
-          <h2 id="model-heading">AI model</h2>
-          <p id="modelStatus" class="status waiting">Loading object-recognition model…</p>
+          <p class="step">Step 1</p>
+          <h2 id="boxes-heading">Set up your boxes</h2>
+          <p class="muted">Choose any number of boxes. Give each one a name and a short description of what belongs there.</p>
         </div>
-        <button id="reloadModelBtn" class="button secondary" type="button">Reload model</button>
+        <div class="box-count-control">
+          <label for="boxCount">Number of boxes</label>
+          <div class="inline-control">
+            <input id="boxCount" type="number" min="1" max="50" value="3" inputmode="numeric" />
+            <button id="applyBoxCountBtn" class="button secondary" type="button">Apply</button>
+          </div>
+        </div>
       </div>
+      <div id="boxEditor" class="box-editor"></div>
+      <p class="tip"><strong>Example:</strong> Box 1 = “Electronics” and “phones, chargers, cables, remotes.” The app can then route recognized electronics there.</p>
     </section>
 
-    <section class="panel" aria-labelledby="photos-heading">
-      <h2 id="photos-heading">1. Choose photos</h2>
-      <div class="pickers">
-        <label class="file-picker">
-          <span>Choose photos</span>
-          <input id="photoInput" type="file" accept="image/*" multiple />
+    <section class="panel camera-panel" aria-labelledby="camera-heading">
+      <p class="step">Step 2</p>
+      <h2 id="camera-heading">Take a picture of the object</h2>
+      <div class="camera-actions">
+        <label class="button primary camera-button">
+          <span aria-hidden="true">📷</span> Take Photo
+          <input id="cameraInput" type="file" accept="image/*" capture="environment" />
         </label>
-        <label class="file-picker">
-          <span>Choose a folder</span>
-          <input id="folderInput" type="file" accept="image/*" webkitdirectory directory multiple />
+        <label class="button secondary camera-button">
+          Choose Existing Photo
+          <input id="photoInput" type="file" accept="image/*" />
         </label>
       </div>
 
-      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Drop photos here">
-        <strong>Or drag and drop photos here</strong>
-        <span>JPG, PNG, WEBP, GIF, BMP and other browser-supported images</span>
-      </div>
-
-      <div class="selection-row">
-        <span id="selectionSummary">No photos selected.</span>
-        <button id="clearBtn" class="button linklike" type="button">Clear selection</button>
-      </div>
-    </section>
-
-    <section class="panel" aria-labelledby="settings-heading">
-      <h2 id="settings-heading">2. Recognition settings</h2>
-      <div class="settings-grid">
+      <div class="settings-strip">
         <label>
           <span>Minimum confidence</span>
           <div class="range-row">
@@ -65,96 +68,70 @@
             <output id="confidenceValue">45%</output>
           </div>
         </label>
-
         <label>
-          <span>Primary object</span>
+          <span>Main object selection</span>
           <select id="primaryMethod">
-            <option value="largest">Largest detected object</option>
+            <option value="largest">Largest object</option>
             <option value="confidence">Highest confidence</option>
           </select>
         </label>
-
-        <label>
-          <span>ZIP folder organization</span>
-          <select id="sortMode">
-            <option value="broad-object">Broad category + object</option>
-            <option value="object">Object only</option>
-            <option value="broad">Broad category only</option>
-          </select>
-        </label>
       </div>
     </section>
 
-    <section class="panel action-panel" aria-labelledby="run-heading">
-      <div>
-        <h2 id="run-heading">3. Scan and categorize</h2>
-        <p class="muted">The photos are processed one at a time to reduce browser memory use.</p>
+    <section id="scanPanel" class="panel hidden" aria-live="polite">
+      <p id="scanStatus" class="scan-status">Analyzing photo…</p>
+      <div class="canvas-wrap">
+        <canvas id="photoCanvas"></canvas>
       </div>
-      <button id="scanBtn" class="button primary" type="button" disabled>Scan photos</button>
     </section>
 
-    <section id="progressPanel" class="panel hidden" aria-live="polite">
-      <div class="progress-heading">
-        <strong id="progressText">Preparing…</strong>
-        <span id="progressCount"></span>
+    <section id="answerPanel" class="panel answer-panel hidden" aria-live="polite">
+      <p class="step">Step 3</p>
+      <div class="answer-grid">
+        <div class="object-answer">
+          <span class="answer-label">AI identified</span>
+          <strong id="objectName" class="object-name">—</strong>
+          <span id="objectCategory" class="category-pill">—</span>
+          <p id="allDetections" class="muted"></p>
+        </div>
+        <div id="recommendation" class="recommendation">
+          <span class="answer-label">Put it in</span>
+          <strong id="recommendedBox" class="recommended-box">—</strong>
+          <p id="recommendationReason" class="muted"></p>
+        </div>
       </div>
-      <progress id="progressBar" value="0" max="100"></progress>
-    </section>
 
-    <section id="resultsPanel" class="panel hidden" aria-labelledby="results-heading">
-      <div class="results-header">
+      <div class="choose-heading">
         <div>
-          <h2 id="results-heading">Results</h2>
-          <p id="resultsSummary" class="muted"></p>
+          <h2>Your boxes</h2>
+          <p id="boxChoiceHelp" class="muted">Tap a different box to correct the suggestion. The app will remember the recognized object for next time.</p>
         </div>
-        <div class="export-actions">
-          <button id="csvBtn" class="button secondary" type="button">Download CSV</button>
-          <button id="zipBtn" class="button primary" type="button">Download categorized ZIP</button>
-        </div>
+        <button id="clearMemoryBtn" class="button linklike" type="button">Clear learned choices</button>
       </div>
+      <div id="boxChoices" class="box-choices"></div>
+    </section>
 
-      <div class="table-wrap">
-        <table>
-          <thead>
-            <tr>
-              <th>Photo</th>
-              <th>Primary object</th>
-              <th>Category</th>
-              <th>Detected objects</th>
-            </tr>
-          </thead>
-          <tbody id="resultsBody"></tbody>
-        </table>
+    <section class="panel">
+      <div class="section-heading history-heading">
+        <div>
+          <h2>Recent sorting</h2>
+          <p class="muted">Stored only in this browser on this device.</p>
+        </div>
+        <button id="clearHistoryBtn" class="button linklike" type="button">Clear history</button>
       </div>
+      <div id="historyEmpty" class="empty-state">No objects sorted yet.</div>
+      <div id="historyList" class="history-list"></div>
     </section>
 
     <section class="panel notes">
-      <h2>About this version</h2>
-      <p>This starter web version uses the TensorFlow.js COCO-SSD model. It recognizes 80 common object classes such as people, cars, trucks, dogs, cats, chairs, TVs, laptops, bottles and many food items. Highly specific objects, exact car models, individual people, receipts, or custom inventory categories would need a more advanced model.</p>
-      <p><strong>Browser limitation:</strong> a web page cannot silently move or rename files on your computer. Instead, this app builds a new categorized ZIP while leaving the originals untouched.</p>
+      <h2>How the box decision works</h2>
+      <p>The vision model identifies a common object such as “cell phone,” “bottle,” “book,” “car,” or “dog.” The app compares that label and its broad category with the names and descriptions you gave your boxes. If you correct the box by tapping it, that object-to-box choice is remembered for future photos.</p>
+      <p>If your boxes are only named “Box 1,” “Box 2,” etc. with no descriptions, the app has no way to know your personal organization system on the first encounter. Tap the correct box once and it will learn that recognized object.</p>
     </section>
   </main>
 
-  <template id="resultRowTemplate">
-    <tr>
-      <td>
-        <div class="photo-cell">
-          <img class="thumb" alt="" />
-          <div>
-            <strong class="filename"></strong>
-            <div class="filemeta muted"></div>
-          </div>
-        </div>
-      </td>
-      <td><span class="primary-object pill"></span></td>
-      <td><span class="broad-category pill secondary-pill"></span></td>
-      <td class="detected-list"></td>
-    </tr>
-  </template>
-
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
-  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
