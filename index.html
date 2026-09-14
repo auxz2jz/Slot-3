@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="description" content="AI Photo Sorter categorizes photos locally in your browser using TensorFlow.js COCO-SSD." />
+  <title>AI Photo Sorter</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <main class="app-shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">Browser-based object recognition</p>
+        <h1>AI Photo Sorter</h1>
+        <p class="subtitle">Choose photos or a whole folder, let AI recognize the objects, then download a categorized ZIP or CSV catalog.</p>
+      </div>
+      <div class="privacy-badge" title="Photos are analyzed in this browser tab.">
+        <span aria-hidden="true">🔒</span>
+        <span>Photos stay in your browser</span>
+      </div>
+    </header>
+
+    <section class="panel" aria-labelledby="model-heading">
+      <div class="model-row">
+        <div>
+          <h2 id="model-heading">AI model</h2>
+          <p id="modelStatus" class="status waiting">Loading object-recognition model…</p>
+        </div>
+        <button id="reloadModelBtn" class="button secondary" type="button">Reload model</button>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="photos-heading">
+      <h2 id="photos-heading">1. Choose photos</h2>
+      <div class="pickers">
+        <label class="file-picker">
+          <span>Choose photos</span>
+          <input id="photoInput" type="file" accept="image/*" multiple />
+        </label>
+        <label class="file-picker">
+          <span>Choose a folder</span>
+          <input id="folderInput" type="file" accept="image/*" webkitdirectory directory multiple />
+        </label>
+      </div>
+
+      <div id="dropZone" class="drop-zone" tabindex="0" role="button" aria-label="Drop photos here">
+        <strong>Or drag and drop photos here</strong>
+        <span>JPG, PNG, WEBP, GIF, BMP and other browser-supported images</span>
+      </div>
+
+      <div class="selection-row">
+        <span id="selectionSummary">No photos selected.</span>
+        <button id="clearBtn" class="button linklike" type="button">Clear selection</button>
+      </div>
+    </section>
+
+    <section class="panel" aria-labelledby="settings-heading">
+      <h2 id="settings-heading">2. Recognition settings</h2>
+      <div class="settings-grid">
+        <label>
+          <span>Minimum confidence</span>
+          <div class="range-row">
+            <input id="confidence" type="range" min="0.20" max="0.90" step="0.05" value="0.45" />
+            <output id="confidenceValue">45%</output>
+          </div>
+        </label>
+
+        <label>
+          <span>Primary object</span>
+          <select id="primaryMethod">
+            <option value="largest">Largest detected object</option>
+            <option value="confidence">Highest confidence</option>
+          </select>
+        </label>
+
+        <label>
+          <span>ZIP folder organization</span>
+          <select id="sortMode">
+            <option value="broad-object">Broad category + object</option>
+            <option value="object">Object only</option>
+            <option value="broad">Broad category only</option>
+          </select>
+        </label>
+      </div>
+    </section>
+
+    <section class="panel action-panel" aria-labelledby="run-heading">
+      <div>
+        <h2 id="run-heading">3. Scan and categorize</h2>
+        <p class="muted">The photos are processed one at a time to reduce browser memory use.</p>
+      </div>
+      <button id="scanBtn" class="button primary" type="button" disabled>Scan photos</button>
+    </section>
+
+    <section id="progressPanel" class="panel hidden" aria-live="polite">
+      <div class="progress-heading">
+        <strong id="progressText">Preparing…</strong>
+        <span id="progressCount"></span>
+      </div>
+      <progress id="progressBar" value="0" max="100"></progress>
+    </section>
+
+    <section id="resultsPanel" class="panel hidden" aria-labelledby="results-heading">
+      <div class="results-header">
+        <div>
+          <h2 id="results-heading">Results</h2>
+          <p id="resultsSummary" class="muted"></p>
+        </div>
+        <div class="export-actions">
+          <button id="csvBtn" class="button secondary" type="button">Download CSV</button>
+          <button id="zipBtn" class="button primary" type="button">Download categorized ZIP</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>Photo</th>
+              <th>Primary object</th>
+              <th>Category</th>
+              <th>Detected objects</th>
+            </tr>
+          </thead>
+          <tbody id="resultsBody"></tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="panel notes">
+      <h2>About this version</h2>
+      <p>This starter web version uses the TensorFlow.js COCO-SSD model. It recognizes 80 common object classes such as people, cars, trucks, dogs, cats, chairs, TVs, laptops, bottles and many food items. Highly specific objects, exact car models, individual people, receipts, or custom inventory categories would need a more advanced model.</p>
+      <p><strong>Browser limitation:</strong> a web page cannot silently move or rename files on your computer. Instead, this app builds a new categorized ZIP while leaving the originals untouched.</p>
+    </section>
+  </main>
+
+  <template id="resultRowTemplate">
+    <tr>
+      <td>
+        <div class="photo-cell">
+          <img class="thumb" alt="" />
+          <div>
+            <strong class="filename"></strong>
+            <div class="filemeta muted"></div>
+          </div>
+        </div>
+      </td>
+      <td><span class="primary-object pill"></span></td>
+      <td><span class="broad-category pill secondary-pill"></span></td>
+      <td class="detected-list"></td>
+    </tr>
+  </template>
+
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>
