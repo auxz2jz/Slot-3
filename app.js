@@ -87,6 +87,7 @@ const els = {
 };
 
 let model = null;
+let classifier = null;
 let boxes = loadJson(STORAGE.boxes, null) || makeDefaultBoxes(3);
 let learned = loadJson(STORAGE.learned, {});
 let history = loadJson(STORAGE.history, []);
@@ -119,7 +120,22 @@ function makeDefaultBoxes(count) {
 }
 
 function broadCategory(label) {
-  return BROAD_CATEGORIES[label] || "Other";
+  if (BROAD_CATEGORIES[label]) return BROAD_CATEGORIES[label];
+  const text = cleanText(label);
+  const groups = [
+    ["Tools", ["screwdriver","wrench","hammer","drill","saw","pliers","vise","axe","hatchet","tool"]],
+    ["Electronics", ["computer","phone","monitor","screen","speaker","radio","camera","printer","router","modem","electronics"]],
+    ["Kitchen & Food", ["pan","pot","kettle","spatula","ladle","plate","dish","mug","cup","bottle","food","kitchen"]],
+    ["Clothing", ["shirt","shoe","boot","sandal","jacket","coat","jean","pants","dress","hat","cap","sock","clothing"]],
+    ["Hardware", ["screw","bolt","nut","nail","fastener","hinge","bracket","hardware"]],
+    ["Automotive", ["tire","wheel","car","truck","automotive","vehicle"]],
+    ["Outdoor", ["garden","hose","shovel","rake","outdoor"]],
+    ["Household", ["lamp","furniture","vacuum","broom","basket","container","household"]]
+  ];
+  for (const [category, words] of groups) {
+    if (words.some(word => text.includes(word))) return category;
+  }
+  return "Other";
 }
 
 function cleanText(value) {
@@ -137,8 +153,9 @@ function escapeHtml(value) {
 }
 
 function formatBox(box, index = boxes.findIndex(b => b.id === box.id)) {
-  const name = box.name.trim() || `Box ${index + 1}`;
-  return `Box ${index + 1} – ${name}`;
+  const fallback = `Box ${index + 1}`;
+  const name = box.name.trim();
+  return !name || cleanText(name) === cleanText(fallback) ? fallback : `${fallback} – ${name}`;
 }
 
 function normalizeBoxes() {
@@ -205,14 +222,18 @@ function renderBoxEditor() {
 
 async function loadModel() {
   model = null;
+  classifier = null;
   els.modelStatus.className = "status waiting";
   els.modelStatus.textContent = "Loading object-recognition model…";
   try {
-    if (!window.tf || !window.cocoSsd) throw new Error("AI libraries did not load. Check your internet connection.");
+    if (!window.tf || !window.cocoSsd || !window.mobilenet) throw new Error("AI libraries did not load. Check your internet connection.");
     await tf.ready();
-    model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+    [model, classifier] = await Promise.all([
+      cocoSsd.load({ base: "lite_mobilenet_v2" }),
+      mobilenet.load({ version: 2, alpha: 0.5 })
+    ]);
     els.modelStatus.className = "status ready";
-    els.modelStatus.textContent = `Ready — TensorFlow.js using ${tf.getBackend()}.`;
+    els.modelStatus.textContent = `Ready — object detector + general classifier using ${tf.getBackend()}.`;
   } catch (error) {
     console.error(error);
     els.modelStatus.className = "status error";
@@ -243,7 +264,11 @@ function choosePrimary(predictions) {
   });
 }
 
-function drawDetections(img, predictions, primary) {
+function classifierLabel(className) {
+  return String(className || "").split(",")[0].trim();
+}
+
+function drawDetections(img, predictions, primary, fallbackLabel = null, fallbackScore = 0) {
   const canvas = els.photoCanvas;
   const maxWidth = 1000;
   const scale = Math.min(1, maxWidth / img.naturalWidth);
@@ -272,6 +297,16 @@ function drawDetections(img, predictions, primary) {
     ctx.fillStyle = "#08111f";
     ctx.fillText(text, x + padding, labelY + 3);
   });
+
+  if (!predictions.length && fallbackLabel) {
+    const text = `${fallbackLabel} ${Math.round(fallbackScore * 100)}%`;
+    const padding = 7;
+    const metrics = ctx.measureText(text);
+    ctx.fillStyle = "#58d68d";
+    ctx.fillRect(8, 8, metrics.width + padding * 2, 34);
+    ctx.fillStyle = "#08111f";
+    ctx.fillText(text, 8 + padding, 13);
+  }
 }
 
 function scoreBox(box, label, category) {
@@ -322,8 +357,8 @@ function recommendBox(label, category) {
 }
 
 async function analyzeFile(file) {
-  if (!model) {
-    alert("The AI model is still loading. Try again when the AI status says Ready.");
+  if (!model || !classifier) {
+    alert("The AI models are still loading. Try again when the AI status says Ready.");
     return;
   }
   if (!file || !file.type.startsWith("image/")) return;
@@ -334,17 +369,27 @@ async function analyzeFile(file) {
 
   try {
     const img = await loadImageFile(file);
-    const predictions = await model.detect(img, 20, Number(els.confidence.value));
+    const [predictions, classifications] = await Promise.all([
+      model.detect(img, 20, Number(els.confidence.value)),
+      classifier.classify(img, 5)
+    ]);
     predictions.sort((a, b) => b.score - a.score);
     const primary = choosePrimary(predictions);
-    drawDetections(img, predictions, primary);
+    const topClass = classifications?.[0] || null;
+    const fallbackLabel = topClass ? classifierLabel(topClass.className) : null;
+    const fallbackScore = topClass ? topClass.probability : 0;
+    drawDetections(img, predictions, primary, fallbackLabel, fallbackScore);
 
-    if (!primary) {
+    const useDetector = Boolean(primary);
+    const selectedLabel = useDetector ? primary.class : fallbackLabel;
+    const selectedScore = useDetector ? primary.score : fallbackScore;
+
+    if (!selectedLabel || selectedScore < 0.08) {
       current = null;
-      els.scanStatus.textContent = "No supported object was detected above the confidence threshold.";
+      els.scanStatus.textContent = "No supported object was recognized clearly enough.";
       els.objectName.textContent = "No object detected";
       els.objectCategory.textContent = "Uncategorized";
-      els.allDetections.textContent = "Try getting closer, improving the lighting, or lowering the confidence setting.";
+      els.allDetections.textContent = "Try filling more of the photo with one object and using good lighting.";
       els.recommendedBox.textContent = "No box recommendation";
       els.recommendationReason.textContent = "The AI needs to recognize an object before it can route it.";
       els.recommendation.classList.add("needs-help");
@@ -355,10 +400,12 @@ async function analyzeFile(file) {
 
     current = {
       fileName: file.name,
-      label: primary.class,
-      category: broadCategory(primary.class),
-      confidence: primary.score,
+      label: selectedLabel,
+      category: broadCategory(selectedLabel),
+      confidence: selectedScore,
       predictions,
+      classifications,
+      recognitionSource: useDetector ? "detector" : "classifier",
       recommendation: null
     };
 
@@ -381,9 +428,13 @@ function renderCurrentAnswer() {
   if (!current) return;
   els.objectName.textContent = `${current.label} (${Math.round(current.confidence * 100)}%)`;
   els.objectCategory.textContent = current.category;
-  els.allDetections.textContent = current.predictions.length
-    ? `Also detected: ${current.predictions.map(p => `${p.class} ${Math.round(p.score * 100)}%`).join(" • ")}`
+  const detectorText = current.predictions?.length
+    ? current.predictions.map(p => `${p.class} ${Math.round(p.score * 100)}%`).join(" • ")
     : "";
+  const classifierText = current.classifications?.length
+    ? current.classifications.slice(0, 3).map(p => `${classifierLabel(p.className)} ${Math.round(p.probability * 100)}%`).join(" • ")
+    : "";
+  els.allDetections.textContent = [detectorText && `Detected: ${detectorText}`, classifierText && `General AI: ${classifierText}`].filter(Boolean).join(" | ");
 
   const rec = current.recommendation;
   if (rec.box) {
