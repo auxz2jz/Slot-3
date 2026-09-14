@@ -1,4 +1,4 @@
-/* AI Photo Sorter - fully browser-based object recognition */
+/* AI Box Sorting Assistant */
 
 const BROAD_CATEGORIES = {
   person: "People",
@@ -28,64 +28,207 @@ const BROAD_CATEGORIES = {
   "hair drier": "Other", toothbrush: "Other"
 };
 
-const SUPPORTED_MIME_PREFIX = "image/";
+const ALIASES = {
+  "cell phone": ["phone", "smartphone", "mobile", "electronics"],
+  tv: ["television", "screen", "electronics"],
+  laptop: ["computer", "pc", "electronics"],
+  mouse: ["computer", "electronics", "accessory"],
+  keyboard: ["computer", "electronics"],
+  remote: ["remote control", "electronics"],
+  bottle: ["container", "drink", "kitchen"],
+  cup: ["mug", "drink", "kitchen"],
+  book: ["books", "paper", "reading"],
+  scissors: ["tool", "tools", "craft"],
+  backpack: ["bag", "bags"],
+  handbag: ["bag", "bags", "purse"],
+  suitcase: ["luggage", "travel"],
+  car: ["vehicle", "vehicles", "automotive"],
+  truck: ["vehicle", "vehicles", "automotive"],
+  bicycle: ["bike", "vehicle", "sports"],
+  motorcycle: ["motorbike", "vehicle", "automotive"],
+  dog: ["pet", "animal"],
+  cat: ["pet", "animal"],
+  bird: ["pet", "animal"]
+};
+
+const STORAGE = {
+  boxes: "aiBoxSorter.boxes.v2",
+  learned: "aiBoxSorter.learned.v2",
+  history: "aiBoxSorter.history.v2"
+};
 
 const els = {
   modelStatus: document.querySelector("#modelStatus"),
   reloadModelBtn: document.querySelector("#reloadModelBtn"),
+  boxCount: document.querySelector("#boxCount"),
+  applyBoxCountBtn: document.querySelector("#applyBoxCountBtn"),
+  boxEditor: document.querySelector("#boxEditor"),
+  cameraInput: document.querySelector("#cameraInput"),
   photoInput: document.querySelector("#photoInput"),
-  folderInput: document.querySelector("#folderInput"),
-  dropZone: document.querySelector("#dropZone"),
-  selectionSummary: document.querySelector("#selectionSummary"),
-  clearBtn: document.querySelector("#clearBtn"),
   confidence: document.querySelector("#confidence"),
   confidenceValue: document.querySelector("#confidenceValue"),
   primaryMethod: document.querySelector("#primaryMethod"),
-  sortMode: document.querySelector("#sortMode"),
-  scanBtn: document.querySelector("#scanBtn"),
-  progressPanel: document.querySelector("#progressPanel"),
-  progressText: document.querySelector("#progressText"),
-  progressCount: document.querySelector("#progressCount"),
-  progressBar: document.querySelector("#progressBar"),
-  resultsPanel: document.querySelector("#resultsPanel"),
-  resultsSummary: document.querySelector("#resultsSummary"),
-  resultsBody: document.querySelector("#resultsBody"),
-  csvBtn: document.querySelector("#csvBtn"),
-  zipBtn: document.querySelector("#zipBtn"),
-  resultRowTemplate: document.querySelector("#resultRowTemplate")
+  scanPanel: document.querySelector("#scanPanel"),
+  scanStatus: document.querySelector("#scanStatus"),
+  photoCanvas: document.querySelector("#photoCanvas"),
+  answerPanel: document.querySelector("#answerPanel"),
+  objectName: document.querySelector("#objectName"),
+  objectCategory: document.querySelector("#objectCategory"),
+  allDetections: document.querySelector("#allDetections"),
+  recommendation: document.querySelector("#recommendation"),
+  recommendedBox: document.querySelector("#recommendedBox"),
+  recommendationReason: document.querySelector("#recommendationReason"),
+  boxChoiceHelp: document.querySelector("#boxChoiceHelp"),
+  boxChoices: document.querySelector("#boxChoices"),
+  clearMemoryBtn: document.querySelector("#clearMemoryBtn"),
+  clearHistoryBtn: document.querySelector("#clearHistoryBtn"),
+  historyEmpty: document.querySelector("#historyEmpty"),
+  historyList: document.querySelector("#historyList")
 };
 
 let model = null;
-let selectedFiles = [];
-let results = [];
-let previewUrls = [];
-let isScanning = false;
+let boxes = loadJson(STORAGE.boxes, null) || makeDefaultBoxes(3);
+let learned = loadJson(STORAGE.learned, {});
+let history = loadJson(STORAGE.history, []);
+let current = null;
+let currentImageUrl = null;
 
-function formatBytes(bytes) {
-  if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
-  const units = ["B", "KB", "MB", "GB"];
-  const i = Math.min(Math.floor(Math.log(bytes) / Math.log(1024)), units.length - 1);
-  const value = bytes / Math.pow(1024, i);
-  return `${value.toFixed(i === 0 ? 0 : 1)} ${units[i]}`;
+function loadJson(key, fallback) {
+  try {
+    const value = localStorage.getItem(key);
+    return value ? JSON.parse(value) : fallback;
+  } catch {
+    return fallback;
+  }
 }
 
-function safeName(value) {
-  return String(value || "Unknown")
-    .replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_")
-    .replace(/[. ]+$/g, "")
-    .trim() || "Unknown";
+function saveJson(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch (error) { console.warn(error); }
+}
+
+function uid() {
+  return (crypto && crypto.randomUUID) ? crypto.randomUUID() : `box-${Date.now()}-${Math.random().toString(16).slice(2)}`;
+}
+
+function makeDefaultBoxes(count) {
+  return Array.from({ length: count }, (_, i) => ({
+    id: uid(),
+    name: `Box ${i + 1}`,
+    description: ""
+  }));
 }
 
 function broadCategory(label) {
   return BROAD_CATEGORIES[label] || "Other";
 }
 
-function folderForResult(result) {
-  const mode = els.sortMode.value;
-  if (result.primaryObject === "No object detected") return "Uncategorized";
-  if (mode === "object") return safeName(result.primaryObject);
-  if (mode === "broad") return safeName(result.broadCategory);
-  return `${safeName(result.broadCategory)}/${safeName(result.primaryObject)}`;
+function cleanText(value) {
+  return String(value || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function tokenize(value) {
+  return cleanText(value).split(/\s+/).filter(Boolean);
+}
+
+function escapeHtml(value) {
+  return String(value ?? "").replace(/[&<>"']/g, char => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#039;"
+  }[char]));
+}
+
+function formatBox(box, index = boxes.findIndex(b => b.id === box.id)) {
+  const name = box.name.trim() || `Box ${index + 1}`;
+  return `Box ${index + 1} – ${name}`;
+}
+
+function normalizeBoxes() {
+  boxes = boxes.filter(box => box && box.id).map((box, i) => ({
+    id: box.id || uid(),
+    name: String(box.name || `Box ${i + 1}`),
+    description: String(box.description || "")
+  }));
+  if (!boxes.length) boxes = makeDefaultBoxes(1);
+  els.boxCount.value = boxes.length;
+  saveJson(STORAGE.boxes, boxes);
+}
+
+function setBoxCount() {
+  const count = Math.max(1, Math.min(50, Number.parseInt(els.boxCount.value, 10) || 1));
+  if (count > boxes.length) {
+    for (let i = boxes.length; i < count; i += 1) {
+      boxes.push({ id: uid(), name: `Box ${i + 1}`, description: "" });
+    }
+  } else if (count < boxes.length) {
+    const removedIds = new Set(boxes.slice(count).map(box => box.id));
+    boxes = boxes.slice(0, count);
+    for (const [label, boxId] of Object.entries(learned)) {
+      if (removedIds.has(boxId)) delete learned[label];
+    }
+    saveJson(STORAGE.learned, learned);
+  }
+  els.boxCount.value = count;
+  saveJson(STORAGE.boxes, boxes);
+  renderBoxEditor();
+  if (current) recomputeRecommendation();
+}
+
+function renderBoxEditor() {
+  els.boxEditor.textContent = "";
+  boxes.forEach((box, index) => {
+    const card = document.createElement("div");
+    card.className = "box-edit-card";
+    card.innerHTML = `
+      <div class="box-number">${index + 1}</div>
+      <label>
+        <span>Box name</span>
+        <input class="box-name" type="text" maxlength="60" value="${escapeHtml(box.name)}" placeholder="Example: Electronics" />
+      </label>
+      <label>
+        <span>What belongs here?</span>
+        <input class="box-description" type="text" maxlength="240" value="${escapeHtml(box.description)}" placeholder="phones, chargers, cables, remotes…" />
+      </label>
+    `;
+    const nameInput = card.querySelector(".box-name");
+    const descInput = card.querySelector(".box-description");
+    const save = () => {
+      box.name = nameInput.value;
+      box.description = descInput.value;
+      saveJson(STORAGE.boxes, boxes);
+      if (current) recomputeRecommendation();
+    };
+    nameInput.addEventListener("input", save);
+    descInput.addEventListener("input", save);
+    els.boxEditor.appendChild(card);
+  });
+  renderBoxChoices();
+}
+
+async function loadModel() {
+  model = null;
+  els.modelStatus.className = "status waiting";
+  els.modelStatus.textContent = "Loading object-recognition model…";
+  try {
+    if (!window.tf || !window.cocoSsd) throw new Error("AI libraries did not load. Check your internet connection.");
+    await tf.ready();
+    model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
+    els.modelStatus.className = "status ready";
+    els.modelStatus.textContent = `Ready — TensorFlow.js using ${tf.getBackend()}.`;
+  } catch (error) {
+    console.error(error);
+    els.modelStatus.className = "status error";
+    els.modelStatus.textContent = `Could not load AI: ${error.message}`;
+  }
+}
+
+function loadImageFile(file) {
+  return new Promise((resolve, reject) => {
+    if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
+    currentImageUrl = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error("The browser could not open this photo."));
+    img.src = currentImageUrl;
+  });
 }
 
 function choosePrimary(predictions) {
@@ -100,311 +243,290 @@ function choosePrimary(predictions) {
   });
 }
 
-function uniqueFiles(files) {
-  const map = new Map();
-  for (const file of files) {
-    if (!file || !file.type?.startsWith(SUPPORTED_MIME_PREFIX)) continue;
-    const key = `${file.webkitRelativePath || file.name}|${file.size}|${file.lastModified}`;
-    map.set(key, file);
-  }
-  return [...map.values()];
-}
+function drawDetections(img, predictions, primary) {
+  const canvas = els.photoCanvas;
+  const maxWidth = 1000;
+  const scale = Math.min(1, maxWidth / img.naturalWidth);
+  canvas.width = Math.max(1, Math.round(img.naturalWidth * scale));
+  canvas.height = Math.max(1, Math.round(img.naturalHeight * scale));
 
-function addFiles(fileList) {
-  const incoming = [...fileList];
-  selectedFiles = uniqueFiles([...selectedFiles, ...incoming]);
-  updateSelectionSummary();
-}
+  const ctx = canvas.getContext("2d");
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  ctx.lineWidth = Math.max(2, Math.round(4 * scale));
+  ctx.font = `${Math.max(14, Math.round(22 * scale))}px system-ui, sans-serif`;
+  ctx.textBaseline = "top";
 
-function updateSelectionSummary() {
-  const totalBytes = selectedFiles.reduce((sum, file) => sum + file.size, 0);
-  els.selectionSummary.textContent = selectedFiles.length
-    ? `${selectedFiles.length.toLocaleString()} photo${selectedFiles.length === 1 ? "" : "s"} selected (${formatBytes(totalBytes)}).`
-    : "No photos selected.";
-  updateScanButton();
-}
+  predictions.forEach(pred => {
+    const [x, y, w, h] = pred.bbox.map(value => value * scale);
+    const isPrimary = pred === primary;
+    ctx.strokeStyle = isPrimary ? "#58d68d" : "#65a9ff";
+    ctx.fillStyle = isPrimary ? "#58d68d" : "#65a9ff";
+    ctx.strokeRect(x, y, w, h);
 
-function updateScanButton() {
-  els.scanBtn.disabled = !model || selectedFiles.length === 0 || isScanning;
-}
-
-function revokePreviews() {
-  for (const url of previewUrls) URL.revokeObjectURL(url);
-  previewUrls = [];
-}
-
-function clearAll() {
-  if (isScanning) return;
-  selectedFiles = [];
-  results = [];
-  els.photoInput.value = "";
-  els.folderInput.value = "";
-  els.resultsBody.textContent = "";
-  els.resultsPanel.classList.add("hidden");
-  els.progressPanel.classList.add("hidden");
-  revokePreviews();
-  updateSelectionSummary();
-}
-
-async function loadModel() {
-  model = null;
-  els.modelStatus.className = "status waiting";
-  els.modelStatus.textContent = "Loading object-recognition model…";
-  updateScanButton();
-
-  try {
-    if (!window.tf || !window.cocoSsd) throw new Error("AI libraries did not load. Check your internet connection and reload the page.");
-    await tf.ready();
-    model = await cocoSsd.load({ base: "lite_mobilenet_v2" });
-    els.modelStatus.className = "status ready";
-    els.modelStatus.textContent = `Ready — running with TensorFlow.js (${tf.getBackend()} backend).`;
-  } catch (error) {
-    console.error(error);
-    els.modelStatus.className = "status error";
-    els.modelStatus.textContent = `Could not load AI model: ${error.message}`;
-  } finally {
-    updateScanButton();
-  }
-}
-
-function loadImageFromFile(file) {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const img = new Image();
-    img.onload = () => resolve({ img, url });
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("Browser could not decode this image."));
-    };
-    img.src = url;
+    const text = `${pred.class} ${Math.round(pred.score * 100)}%`;
+    const padding = 5;
+    const metrics = ctx.measureText(text);
+    const labelHeight = Math.max(20, Math.round(28 * scale));
+    const labelY = Math.max(0, y - labelHeight);
+    ctx.fillRect(x, labelY, metrics.width + padding * 2, labelHeight);
+    ctx.fillStyle = "#08111f";
+    ctx.fillText(text, x + padding, labelY + 3);
   });
 }
 
-async function scanPhotos() {
-  if (!model || !selectedFiles.length || isScanning) return;
+function scoreBox(box, label, category) {
+  const haystack = cleanText(`${box.name} ${box.description}`);
+  if (!haystack) return 0;
 
-  isScanning = true;
-  results = [];
-  els.resultsBody.textContent = "";
-  els.resultsPanel.classList.add("hidden");
-  els.progressPanel.classList.remove("hidden");
-  els.progressBar.max = selectedFiles.length;
-  els.progressBar.value = 0;
-  els.progressText.textContent = "Starting scan…";
-  els.progressCount.textContent = `0 / ${selectedFiles.length}`;
-  updateScanButton();
-  revokePreviews();
+  const labelText = cleanText(label);
+  const categoryText = cleanText(category);
+  let score = 0;
 
-  const minScore = Number(els.confidence.value);
+  if (labelText && haystack.includes(labelText)) score += 14;
+  if (categoryText && categoryText !== "other" && haystack.includes(categoryText)) score += 7;
 
-  try {
-    for (let i = 0; i < selectedFiles.length; i += 1) {
-      const file = selectedFiles[i];
-      els.progressText.textContent = `Scanning ${file.name}`;
-      els.progressCount.textContent = `${i + 1} / ${selectedFiles.length}`;
+  const labelTokens = new Set(tokenize(labelText));
+  const categoryTokens = new Set(tokenize(categoryText));
+  const aliasTokens = new Set((ALIASES[label] || []).flatMap(tokenize));
+  const boxTokens = new Set(tokenize(haystack));
 
-      let previewUrl = null;
-      try {
-        const loaded = await loadImageFromFile(file);
-        previewUrl = loaded.url;
-        previewUrls.push(previewUrl);
+  for (const token of labelTokens) if (boxTokens.has(token)) score += 5;
+  for (const token of aliasTokens) if (boxTokens.has(token)) score += 3;
+  for (const token of categoryTokens) if (boxTokens.has(token)) score += 2;
 
-        const predictions = await model.detect(loaded.img, 20, minScore);
-        const primary = choosePrimary(predictions);
-        const primaryObject = primary ? primary.class : "No object detected";
-
-        results.push({
-          file,
-          previewUrl,
-          sourcePath: file.webkitRelativePath || file.name,
-          primaryObject,
-          broadCategory: primary ? broadCategory(primary.class) : "Uncategorized",
-          predictions: [...predictions].sort((a, b) => b.score - a.score),
-          error: null
-        });
-      } catch (error) {
-        console.error(file.name, error);
-        results.push({
-          file,
-          previewUrl,
-          sourcePath: file.webkitRelativePath || file.name,
-          primaryObject: "Error",
-          broadCategory: "Error",
-          predictions: [],
-          error: error.message
-        });
-      }
-
-      els.progressBar.value = i + 1;
-      await new Promise(resolve => requestAnimationFrame(resolve));
-    }
-
-    renderResults();
-    els.progressText.textContent = "Scan complete.";
-    els.resultsPanel.classList.remove("hidden");
-    els.resultsPanel.scrollIntoView({ behavior: "smooth", block: "start" });
-  } finally {
-    isScanning = false;
-    updateScanButton();
-  }
+  return score;
 }
 
-function renderResults() {
-  els.resultsBody.textContent = "";
-  const detected = results.filter(item => item.primaryObject !== "No object detected" && !item.error).length;
-  const uncategorized = results.filter(item => item.primaryObject === "No object detected").length;
-  const errors = results.filter(item => item.error).length;
-
-  els.resultsSummary.textContent = `${results.length} processed • ${detected} categorized • ${uncategorized} uncategorized${errors ? ` • ${errors} error${errors === 1 ? "" : "s"}` : ""}`;
-
-  for (const result of results) {
-    const row = els.resultRowTemplate.content.firstElementChild.cloneNode(true);
-    const img = row.querySelector(".thumb");
-    img.src = result.previewUrl || "";
-    img.alt = `Preview of ${result.file.name}`;
-    row.querySelector(".filename").textContent = result.sourcePath;
-    row.querySelector(".filemeta").textContent = formatBytes(result.file.size);
-    row.querySelector(".primary-object").textContent = result.primaryObject;
-    row.querySelector(".broad-category").textContent = result.broadCategory;
-
-    const detectedList = row.querySelector(".detected-list");
-    if (result.error) {
-      detectedList.textContent = `Error: ${result.error}`;
-    } else if (!result.predictions.length) {
-      detectedList.textContent = "Nothing above the confidence threshold.";
-    } else {
-      detectedList.textContent = result.predictions
-        .map(pred => `${pred.class} (${Math.round(pred.score * 100)}%)`)
-        .join(" • ");
-    }
-
-    els.resultsBody.appendChild(row);
-  }
-}
-
-function csvEscape(value) {
-  const text = String(value ?? "");
-  return /[",\n\r]/.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
-}
-
-function downloadBlob(blob, filename) {
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1500);
-}
-
-function downloadCsv() {
-  if (!results.length) return;
-  const lines = [[
-    "source_file",
-    "primary_object",
-    "broad_category",
-    "all_detected_objects",
-    "error"
-  ]];
-
-  for (const result of results) {
-    lines.push([
-      result.sourcePath,
-      result.primaryObject,
-      result.broadCategory,
-      result.predictions.map(p => `${p.class} (${Math.round(p.score * 100)}%)`).join("; "),
-      result.error || ""
-    ]);
+function recommendBox(label, category) {
+  const rememberedId = learned[cleanText(label)];
+  const remembered = boxes.find(box => box.id === rememberedId);
+  if (remembered) {
+    return { box: remembered, source: "learned", score: 999, reason: `You previously taught me that “${label}” belongs here.` };
   }
 
-  const csv = lines.map(row => row.map(csvEscape).join(",")).join("\r\n");
-  downloadBlob(new Blob(["\ufeff", csv], { type: "text/csv;charset=utf-8" }), "AI_Photo_Catalog.csv");
-}
+  const ranked = boxes
+    .map(box => ({ box, score: scoreBox(box, label, category) }))
+    .sort((a, b) => b.score - a.score);
 
-function uniqueZipPath(folder, filename, used) {
-  const safeFile = safeName(filename);
-  const dot = safeFile.lastIndexOf(".");
-  const stem = dot > 0 ? safeFile.slice(0, dot) : safeFile;
-  const ext = dot > 0 ? safeFile.slice(dot) : "";
-  let candidate = `${folder}/${safeFile}`;
-  let n = 2;
-  while (used.has(candidate.toLowerCase())) {
-    candidate = `${folder}/${stem}_${n}${ext}`;
-    n += 1;
+  if (!ranked.length || ranked[0].score <= 0) {
+    return { box: null, source: "unknown", score: 0, reason: "I recognize the object, but your box names/descriptions do not tell me where you want it. Tap the correct box once to teach me." };
   }
-  used.add(candidate.toLowerCase());
-  return candidate;
+
+  const top = ranked[0];
+  const tied = ranked.length > 1 && ranked[1].score === top.score;
+  if (tied) {
+    return { box: null, source: "ambiguous", score: top.score, reason: "More than one box looks equally suitable. Tap the correct box and I’ll remember it." };
+  }
+
+  return { box: top.box, source: "description", score: top.score, reason: `This box best matches “${label}” and its ${category} category.` };
 }
 
-async function downloadZip() {
-  if (!results.length) return;
-  if (!window.JSZip) {
-    alert("ZIP library did not load. Reload the page and try again.");
+async function analyzeFile(file) {
+  if (!model) {
+    alert("The AI model is still loading. Try again when the AI status says Ready.");
     return;
   }
+  if (!file || !file.type.startsWith("image/")) return;
 
-  els.zipBtn.disabled = true;
-  const originalText = els.zipBtn.textContent;
-  els.zipBtn.textContent = "Building ZIP…";
+  els.scanPanel.classList.remove("hidden");
+  els.answerPanel.classList.add("hidden");
+  els.scanStatus.textContent = "Analyzing photo…";
 
   try {
-    const zip = new JSZip();
-    const used = new Set();
+    const img = await loadImageFile(file);
+    const predictions = await model.detect(img, 20, Number(els.confidence.value));
+    predictions.sort((a, b) => b.score - a.score);
+    const primary = choosePrimary(predictions);
+    drawDetections(img, predictions, primary);
 
-    for (const result of results) {
-      const folder = result.error ? "Errors" : folderForResult(result);
-      const zipPath = uniqueZipPath(folder, result.file.name, used);
-      zip.file(zipPath, result.file);
+    if (!primary) {
+      current = null;
+      els.scanStatus.textContent = "No supported object was detected above the confidence threshold.";
+      els.objectName.textContent = "No object detected";
+      els.objectCategory.textContent = "Uncategorized";
+      els.allDetections.textContent = "Try getting closer, improving the lighting, or lowering the confidence setting.";
+      els.recommendedBox.textContent = "No box recommendation";
+      els.recommendationReason.textContent = "The AI needs to recognize an object before it can route it.";
+      els.recommendation.classList.add("needs-help");
+      renderBoxChoices();
+      els.answerPanel.classList.remove("hidden");
+      return;
     }
 
-    const blob = await zip.generateAsync(
-      { type: "blob", compression: "DEFLATE", compressionOptions: { level: 4 } },
-      metadata => { els.zipBtn.textContent = `Building ZIP… ${Math.round(metadata.percent)}%`; }
-    );
-    downloadBlob(blob, "AI_Sorted_Photos.zip");
+    current = {
+      fileName: file.name,
+      label: primary.class,
+      category: broadCategory(primary.class),
+      confidence: primary.score,
+      predictions,
+      recommendation: null
+    };
+
+    current.recommendation = recommendBox(current.label, current.category);
+    els.scanStatus.textContent = "Analysis complete.";
+    renderCurrentAnswer();
+    recordAutomaticSuggestion();
+    els.answerPanel.classList.remove("hidden");
+    els.answerPanel.scrollIntoView({ behavior: "smooth", block: "start" });
   } catch (error) {
     console.error(error);
-    alert(`Could not build ZIP: ${error.message}`);
+    els.scanStatus.textContent = `Could not analyze the photo: ${error.message}`;
   } finally {
-    els.zipBtn.disabled = false;
-    els.zipBtn.textContent = originalText;
+    els.cameraInput.value = "";
+    els.photoInput.value = "";
   }
 }
 
-els.photoInput.addEventListener("change", event => addFiles(event.target.files));
-els.folderInput.addEventListener("change", event => addFiles(event.target.files));
-els.clearBtn.addEventListener("click", clearAll);
-els.scanBtn.addEventListener("click", scanPhotos);
-els.csvBtn.addEventListener("click", downloadCsv);
-els.zipBtn.addEventListener("click", downloadZip);
-els.reloadModelBtn.addEventListener("click", loadModel);
+function renderCurrentAnswer() {
+  if (!current) return;
+  els.objectName.textContent = `${current.label} (${Math.round(current.confidence * 100)}%)`;
+  els.objectCategory.textContent = current.category;
+  els.allDetections.textContent = current.predictions.length
+    ? `Also detected: ${current.predictions.map(p => `${p.class} ${Math.round(p.score * 100)}%`).join(" • ")}`
+    : "";
 
+  const rec = current.recommendation;
+  if (rec.box) {
+    els.recommendedBox.textContent = formatBox(rec.box);
+    els.recommendationReason.textContent = rec.reason;
+    els.recommendation.classList.remove("needs-help");
+  } else {
+    els.recommendedBox.textContent = "Choose a box below";
+    els.recommendationReason.textContent = rec.reason;
+    els.recommendation.classList.add("needs-help");
+  }
+  renderBoxChoices();
+}
+
+function renderBoxChoices() {
+  els.boxChoices.textContent = "";
+  const recommendedId = current?.recommendation?.box?.id || null;
+
+  boxes.forEach((box, index) => {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "box-choice";
+    if (box.id === recommendedId) button.classList.add("recommended");
+    button.innerHTML = `
+      <span class="choice-number">${index + 1}</span>
+      <span class="choice-copy">
+        <strong>${escapeHtml(box.name.trim() || `Box ${index + 1}`)}</strong>
+        <small>${escapeHtml(box.description.trim() || "No description yet")}</small>
+      </span>
+      ${box.id === recommendedId ? '<span class="recommended-tag">AI PICK</span>' : ""}
+    `;
+    button.disabled = !current;
+    button.addEventListener("click", () => teachBox(box));
+    els.boxChoices.appendChild(button);
+  });
+}
+
+function teachBox(box) {
+  if (!current) return;
+  learned[cleanText(current.label)] = box.id;
+  saveJson(STORAGE.learned, learned);
+  current.recommendation = {
+    box,
+    source: "learned",
+    score: 999,
+    reason: `Saved. From now on, recognized “${current.label}” objects will go to this box on this device.`
+  };
+  renderCurrentAnswer();
+  addHistory(current, box, "confirmed");
+}
+
+function recordAutomaticSuggestion() {
+  if (!current?.recommendation?.box) return;
+  addHistory(current, current.recommendation.box, current.recommendation.source);
+}
+
+function addHistory(item, box, source) {
+  const last = history[0];
+  const record = {
+    id: `${Date.now()}-${Math.random().toString(16).slice(2)}`,
+    time: new Date().toISOString(),
+    label: item.label,
+    category: item.category,
+    confidence: item.confidence,
+    boxId: box.id,
+    boxName: box.name,
+    source
+  };
+
+  if (last && last.label === record.label && last.boxId === record.boxId && (Date.now() - Date.parse(last.time)) < 5000) {
+    history[0] = record;
+  } else {
+    history.unshift(record);
+  }
+  history = history.slice(0, 30);
+  saveJson(STORAGE.history, history);
+  renderHistory();
+}
+
+function renderHistory() {
+  els.historyList.textContent = "";
+  els.historyEmpty.classList.toggle("hidden", history.length > 0);
+
+  history.forEach(item => {
+    const row = document.createElement("div");
+    row.className = "history-item";
+    const boxIndex = boxes.findIndex(box => box.id === item.boxId);
+    const boxText = boxIndex >= 0 ? formatBox(boxes[boxIndex], boxIndex) : item.boxName || "Box removed";
+    const time = new Date(item.time);
+    row.innerHTML = `
+      <div>
+        <strong>${escapeHtml(item.label)}</strong>
+        <span class="history-category">${escapeHtml(item.category)}</span>
+      </div>
+      <div class="history-destination">${escapeHtml(boxText)}</div>
+      <time>${escapeHtml(time.toLocaleString())}</time>
+    `;
+    els.historyList.appendChild(row);
+  });
+}
+
+function recomputeRecommendation() {
+  if (!current) return;
+  current.recommendation = recommendBox(current.label, current.category);
+  renderCurrentAnswer();
+}
+
+els.applyBoxCountBtn.addEventListener("click", setBoxCount);
+els.boxCount.addEventListener("keydown", event => {
+  if (event.key === "Enter") setBoxCount();
+});
+els.reloadModelBtn.addEventListener("click", loadModel);
+els.cameraInput.addEventListener("change", event => analyzeFile(event.target.files[0]));
+els.photoInput.addEventListener("change", event => analyzeFile(event.target.files[0]));
 els.confidence.addEventListener("input", () => {
   els.confidenceValue.textContent = `${Math.round(Number(els.confidence.value) * 100)}%`;
 });
-
-for (const eventName of ["dragenter", "dragover"]) {
-  els.dropZone.addEventListener(eventName, event => {
-    event.preventDefault();
-    els.dropZone.classList.add("dragover");
-  });
-}
-for (const eventName of ["dragleave", "drop"]) {
-  els.dropZone.addEventListener(eventName, event => {
-    event.preventDefault();
-    els.dropZone.classList.remove("dragover");
-  });
-}
-els.dropZone.addEventListener("drop", event => addFiles(event.dataTransfer.files));
-els.dropZone.addEventListener("click", () => els.photoInput.click());
-els.dropZone.addEventListener("keydown", event => {
-  if (event.key === "Enter" || event.key === " ") {
-    event.preventDefault();
-    els.photoInput.click();
-  }
+els.primaryMethod.addEventListener("change", () => {
+  if (!current?.predictions?.length) return;
+  const primary = choosePrimary(current.predictions);
+  current.label = primary.class;
+  current.category = broadCategory(primary.class);
+  current.confidence = primary.score;
+  current.recommendation = recommendBox(current.label, current.category);
+  renderCurrentAnswer();
+});
+els.clearMemoryBtn.addEventListener("click", () => {
+  if (!confirm("Clear all learned object-to-box choices on this device?")) return;
+  learned = {};
+  saveJson(STORAGE.learned, learned);
+  recomputeRecommendation();
+});
+els.clearHistoryBtn.addEventListener("click", () => {
+  history = [];
+  saveJson(STORAGE.history, history);
+  renderHistory();
 });
 
-window.addEventListener("beforeunload", revokePreviews);
+window.addEventListener("beforeunload", () => {
+  if (currentImageUrl) URL.revokeObjectURL(currentImageUrl);
+});
 
+normalizeBoxes();
+renderBoxEditor();
+renderHistory();
 loadModel();
