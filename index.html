@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
   <meta name="theme-color" content="#0f172a" />
-  <meta name="description" content="Use your phone camera to identify an object and learn which physical storage box it belongs in." />
+  <meta name="description" content="AI Box Sorting Assistant: photograph an object, identify it, choose the right physical box, save a labeled photo, and search the inventory later." />
   <title>AI Box Sorting Assistant</title>
   <link rel="stylesheet" href="styles.css" />
 </head>
@@ -12,127 +12,146 @@
   <main class="app-shell">
     <header class="hero">
       <div>
-        <p class="eyebrow">Camera + AI object recognition</p>
+        <p class="eyebrow">Camera + AI + physical box inventory</p>
         <h1>AI Box Sorting Assistant</h1>
-        <p class="subtitle">Set up as many physical boxes as you use. Take a photo of an object and the app identifies it, labels it, and tells you which box it belongs in.</p>
+        <p class="subtitle">Photograph an item, correct the AI if needed, put it in the recommended box, and save a labeled photo so you can find it later.</p>
       </div>
-      <div class="privacy-badge"><span aria-hidden="true">🔒</span><span>Recognition runs in your browser</span></div>
+      <div class="privacy-badge"><span aria-hidden="true">🔒</span><span>Inventory stays in this browser</span></div>
     </header>
 
-    <section class="panel model-panel">
-      <div>
-        <h2>AI status</h2>
-        <p id="modelStatus" class="status waiting">Loading object-recognition models…</p>
-      </div>
-      <button id="reloadModelBtn" class="button secondary" type="button">Reload AI</button>
-    </section>
+    <nav class="top-tabs" aria-label="Main sections">
+      <button class="tab active" data-tab="sort" type="button">📷 Sort Item</button>
+      <button class="tab" data-tab="boxes" type="button">📦 Boxes & QR</button>
+      <button class="tab" data-tab="inventory" type="button">🔎 Find Items</button>
+    </nav>
 
-    <section class="panel" aria-labelledby="boxes-heading">
-      <div class="section-heading">
+    <section id="tab-sort" class="tab-page active">
+      <section class="panel model-panel">
         <div>
-          <p class="step">Step 1</p>
-          <h2 id="boxes-heading">Set up your boxes</h2>
-          <p class="muted">Choose any number of boxes. Give each one a name and a short description of what belongs there.</p>
+          <h2>AI status</h2>
+          <p id="modelStatus" class="status waiting">Loading AI models…</p>
         </div>
-        <div class="box-count-control">
-          <label for="boxCount">Number of boxes</label>
-          <div class="inline-control">
-            <input id="boxCount" type="number" min="1" max="50" value="3" inputmode="numeric" />
-            <button id="applyBoxCountBtn" class="button secondary" type="button">Apply</button>
+        <button id="reloadModelBtn" class="button secondary" type="button">Reload AI</button>
+      </section>
+
+      <section class="panel">
+        <div class="step-title"><span class="step-number">1</span><div><h2>Take a photo of one object</h2><p class="muted">A plain background and one main object works best.</p></div></div>
+        <div class="camera-actions">
+          <label class="button primary camera-button">📷 Take Photo<input id="cameraInput" type="file" accept="image/*" capture="environment" /></label>
+          <label class="button secondary camera-button">🖼️ Choose Photo<input id="photoInput" type="file" accept="image/*" /></label>
+        </div>
+      </section>
+
+      <section id="analysisPanel" class="panel hidden">
+        <div class="step-title"><span class="step-number">2</span><div><h2>Review the AI result</h2><p class="muted">Change the item name, category, or destination box before saving.</p></div></div>
+
+        <div class="analysis-grid">
+          <div>
+            <canvas id="previewCanvas" class="preview-canvas"></canvas>
+            <p id="detectionSummary" class="muted small"></p>
+          </div>
+
+          <div class="edit-card">
+            <label>Object name
+              <input id="itemName" type="text" autocomplete="off" placeholder="e.g. screwdriver" />
+            </label>
+            <label>Category
+              <input id="itemCategory" type="text" list="categoryList" autocomplete="off" placeholder="e.g. Tools" />
+            </label>
+            <datalist id="categoryList">
+              <option value="Tools"></option><option value="Electronics"></option><option value="Electrical"></option>
+              <option value="Automotive"></option><option value="Kitchen"></option><option value="Household"></option>
+              <option value="Hardware"></option><option value="Office"></option><option value="Clothing"></option>
+              <option value="Outdoor"></option><option value="Sports"></option><option value="Toys"></option>
+              <option value="Cleaning"></option><option value="Food"></option><option value="Other"></option>
+            </datalist>
+            <label>Destination box
+              <select id="destinationBox"></select>
+            </label>
+            <div id="routingReason" class="routing-reason"></div>
+            <label>Optional note
+              <input id="itemNote" type="text" autocomplete="off" placeholder="size, color, part number, etc." />
+            </label>
+            <button id="saveItemBtn" class="button success big-action" type="button">Save Item to Inventory</button>
           </div>
         </div>
-      </div>
-      <div id="boxEditor" class="box-editor"></div>
-      <p class="tip"><strong>Example:</strong> Box 1 = “Electronics” and “phones, chargers, cables, remotes.” The app can then route recognized electronics there.</p>
-    </section>
+      </section>
 
-    <section class="panel camera-panel" aria-labelledby="camera-heading">
-      <p class="step">Step 2</p>
-      <h2 id="camera-heading">Take a picture of the object</h2>
-      <div class="camera-actions">
-        <label class="button primary camera-button">
-          <span aria-hidden="true">📷</span> Take Photo
-          <input id="cameraInput" type="file" accept="image/*" capture="environment" />
-        </label>
-        <label class="button secondary camera-button">
-          Choose Existing Photo
-          <input id="photoInput" type="file" accept="image/*" />
-        </label>
-      </div>
-
-      <div class="settings-strip">
-        <label>
-          <span>Minimum confidence</span>
-          <div class="range-row">
-            <input id="confidence" type="range" min="0.20" max="0.90" step="0.05" value="0.45" />
-            <output id="confidenceValue">45%</output>
-          </div>
-        </label>
-        <label>
-          <span>Main object selection</span>
-          <select id="primaryMethod">
-            <option value="largest">Largest object</option>
-            <option value="confidence">Highest confidence</option>
-          </select>
-        </label>
-      </div>
-    </section>
-
-    <section id="scanPanel" class="panel hidden" aria-live="polite">
-      <p id="scanStatus" class="scan-status">Analyzing photo…</p>
-      <div class="canvas-wrap">
-        <canvas id="photoCanvas"></canvas>
-      </div>
-    </section>
-
-    <section id="answerPanel" class="panel answer-panel hidden" aria-live="polite">
-      <p class="step">Step 3</p>
-      <div class="answer-grid">
-        <div class="object-answer">
-          <span class="answer-label">AI identified</span>
-          <strong id="objectName" class="object-name">—</strong>
-          <span id="objectCategory" class="category-pill">—</span>
-          <p id="allDetections" class="muted"></p>
-        </div>
-        <div id="recommendation" class="recommendation">
-          <span class="answer-label">Put it in</span>
-          <strong id="recommendedBox" class="recommended-box">—</strong>
-          <p id="recommendationReason" class="muted"></p>
-        </div>
-      </div>
-
-      <div class="choose-heading">
+      <section id="savedPanel" class="panel saved-panel hidden">
+        <div class="saved-icon">✓</div>
         <div>
-          <h2>Your boxes</h2>
-          <p id="boxChoiceHelp" class="muted">Tap a different box to correct the suggestion. The app will remember the recognized object for next time.</p>
+          <h2 id="savedTitle">Saved</h2>
+          <p id="savedText"></p>
         </div>
-        <button id="clearMemoryBtn" class="button linklike" type="button">Clear learned choices</button>
-      </div>
-      <div id="boxChoices" class="box-choices"></div>
+        <button id="sortAnotherBtn" class="button primary" type="button">Sort Another Item</button>
+      </section>
     </section>
 
-    <section class="panel">
-      <div class="section-heading history-heading">
+    <section id="tab-boxes" class="tab-page">
+      <section class="panel">
+        <div class="step-title"><span class="step-number">1</span><div><h2>How many physical boxes do you have?</h2><p class="muted">You can change this later. Existing box inventory is preserved when possible.</p></div></div>
+        <div class="box-count-row">
+          <input id="boxCount" type="number" min="1" max="100" value="3" inputmode="numeric" />
+          <button id="applyBoxCountBtn" class="button primary" type="button">Apply Box Count</button>
+          <button id="printQrBtn" class="button secondary" type="button">🖨️ Print QR Labels</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-heading">
+          <div><h2>Box setup</h2><p class="muted">Name each box and describe what belongs there. The AI uses these descriptions when routing new items.</p></div>
+        </div>
+        <div id="boxGrid" class="box-grid"></div>
+      </section>
+
+      <section class="panel">
+        <h2>Scan or enter a box QR code</h2>
+        <p class="muted">Use this to open a box and see everything stored inside it.</p>
+        <div class="qr-lookup-row">
+          <label class="button secondary camera-button">📷 Scan QR<input id="scanQrInput" type="file" accept="image/*" capture="environment" /></label>
+          <input id="qrLookupInput" type="text" placeholder="Or type/paste QR value" />
+          <button id="qrLookupBtn" class="button primary" type="button">Open Box</button>
+        </div>
+        <p id="qrLookupStatus" class="muted small"></p>
+      </section>
+    </section>
+
+    <section id="tab-inventory" class="tab-page">
+      <section class="panel search-panel">
         <div>
-          <h2>Recent sorting</h2>
-          <p class="muted">Stored only in this browser on this device.</p>
+          <h2>Find an item</h2>
+          <p class="muted">Search by item name, category, note, AI label, or box name.</p>
         </div>
-        <button id="clearHistoryBtn" class="button linklike" type="button">Clear history</button>
-      </div>
-      <div id="historyEmpty" class="empty-state">No objects sorted yet.</div>
-      <div id="historyList" class="history-list"></div>
+        <div class="search-row">
+          <input id="searchInput" type="search" placeholder="Where is my screwdriver?" autocomplete="off" />
+          <select id="boxFilter"><option value="">All boxes</option></select>
+          <button id="clearSearchBtn" class="button secondary" type="button">Clear</button>
+        </div>
+        <div class="inventory-actions">
+          <button id="exportCsvBtn" class="button secondary" type="button">Download Inventory CSV</button>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="inventory-heading">
+          <div><h2>Inventory</h2><p id="inventorySummary" class="muted"></p></div>
+        </div>
+        <div id="inventoryGrid" class="inventory-grid"></div>
+        <div id="emptyInventory" class="empty-state hidden">No matching items found.</div>
+      </section>
     </section>
 
-    <section class="panel notes">
-      <h2>How the box decision works</h2>
-      <p>The vision models identify the object and, when possible, draw a labeled box around it. The app compares the recognized label and category with the names and descriptions you gave your storage boxes. If you correct the destination by tapping a box, that object-to-box choice is remembered for future photos.</p>
-      <p>If your boxes are only named “Box 1,” “Box 2,” etc. with no descriptions, the app has no way to know your personal organization system on the first encounter. Tap the correct box once and it will learn that recognized object.</p>
+    <section class="panel footnote-panel">
+      <strong>Storage note:</strong> item records and labeled photos are saved in this browser using IndexedDB. Clearing browser/site data can remove them, so the CSV export is useful as a catalog backup.
     </section>
   </main>
+
+  <div id="qrPrintArea" class="qr-print-area" aria-hidden="true"></div>
 
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.22.0/dist/tf.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/coco-ssd@2.2.3/dist/coco-ssd.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
