@@ -1,57 +1,59 @@
-# AI Photo Sorter — Web Version
+# AI Box Sorting Assistant
 
-A browser-based version of the AI Photo Sorter. It uses TensorFlow.js and the COCO-SSD object-detection model to recognize common objects directly in the user's browser.
+A mobile-friendly browser app that helps sort real-world objects into physical storage boxes.
 
-## What it does
+## How it works
 
-- Select individual photos, a whole folder, or drag-and-drop images.
-- Recognize multiple objects in each image.
-- Show confidence scores for every detected object.
-- Choose the primary object by:
-  - largest detected object, or
-  - highest-confidence detection.
-- Group photos into broad categories such as People, Vehicles, Animals, Electronics, Household, Appliances, Sports, and Kitchen & Food.
-- Export a CSV catalog.
-- Build a categorized ZIP with one of three folder layouts:
-  - `Broad category/Object/photo.jpg`
-  - `Object/photo.jpg`
-  - `Broad category/photo.jpg`
-- Leave the original files untouched.
+1. Choose how many physical boxes you have — 2, 3, 17, or up to 50.
+2. Give each box a name and optionally describe what belongs in it.
+3. Tap **Take Photo** on a phone to open the rear camera, or choose an existing image.
+4. The app runs two browser AI models:
+   - COCO-SSD for object detection and bounding boxes.
+   - MobileNet for broader single-object image classification when COCO-SSD does not recognize the item.
+5. The recognized object is labeled and assigned a broad category.
+6. The app recommends a physical box based on:
+   - previously learned choices,
+   - the recognized object label,
+   - the broad category,
+   - the box names and descriptions.
+7. If the suggested box is wrong or the app is unsure, tap the correct box. The object-to-box choice is saved in browser local storage so future photos of that recognized object go to the same box.
+
+## Example
+
+You create three boxes:
+
+- Box 1 — Electronics: `phones, chargers, cables, remotes, computer accessories`
+- Box 2 — Tools: `screwdrivers, wrenches, hand tools, drill items`
+- Box 3 — Kitchen: `cups, bottles, utensils, kitchen items`
+
+Take a photo of an object. The app might show:
+
+- **AI identified:** cell phone
+- **Category:** Electronics
+- **Put it in:** Box 1 — Electronics
+
+If it identifies something correctly but cannot determine your personal box, tap the desired box once to teach it.
 
 ## Privacy
 
-Image recognition runs in the browser with TensorFlow.js. The selected photos are not intentionally uploaded to an application server. The TensorFlow.js libraries and pretrained model are loaded from their hosted sources, so an internet connection is required when the model is loaded.
+Recognition runs in the browser. Photos are not intentionally uploaded to an application server. The TensorFlow.js libraries and pretrained models are loaded from hosted sources, so internet access is normally needed when the models are first loaded.
+
+Box definitions, learned object-to-box choices, and recent sorting history are stored in `localStorage` on that browser/device.
+
+## Limitations
+
+No general-purpose vision model recognizes every possible object perfectly. For best results, photograph one main object at a time, fill much of the frame with it, and use good lighting.
+
+COCO-SSD supplies true bounding boxes for the object types it knows. When the broader MobileNet classifier recognizes an item COCO-SSD does not know, the app labels the overall photo rather than claiming a precise object bounding box.
+
+The current learned routing is tied to the recognized label. A future version could add cloud sync, custom trained categories, barcode/QR identification, inventory counts, and per-item records.
 
 ## Run it
 
-This is a static website. No Python or Node server is required for normal use.
-
-### Option 1: GitHub Pages
-
-If GitHub Pages is enabled for the repository, publish from the repository root on the `main` branch. Then open the Pages URL.
-
-### Option 2: Local web server
-
-From this folder, run any simple static server, for example:
-
-```bash
-python -m http.server 8000
-```
-
-Then open `http://localhost:8000` in a browser.
-
-Opening `index.html` directly may also work in some browsers, but serving it over HTTP is more reliable.
-
-## Browser limitation
-
-A web page cannot silently move or rename the user's original files. This version creates a new categorized ZIP instead. That is intentionally safer because the source photos remain unchanged.
-
-## AI model limitation
-
-The COCO-SSD model recognizes 80 common object classes. It is a good general-purpose starter, but it does not identify exact car makes/models, individual people, receipts, obscure tools, or arbitrary custom inventory categories. Those would require a more advanced vision model or custom training.
+This is a static website. It can be hosted using GitHub Pages from the repository root on the `main` branch. No Python or Node server is required for normal use.
 
 ## Main files
 
-- `index.html` — web interface and external AI library loading
-- `styles.css` — responsive styling
-- `app.js` — object recognition, categorization, CSV export, and ZIP generation
+- `index.html` — mobile camera UI and AI library loading
+- `styles.css` — responsive phone/desktop layout
+- `app.js` — object recognition, box configuration, recommendation logic, learning, and history
