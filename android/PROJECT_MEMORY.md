@@ -90,6 +90,20 @@ Local patch SHA-256:
 
 WIP3 additionally rejects malformed/undeclared/duplicate/oversized remote media, bounds media downloads to 50 MiB, and preserves declared media extensions. The complete sync package still passes Kotlin type/signature compilation against local Android/data interface stubs.
 
+Current reviewed WIP4 checkpoint:
+`BoxInventoryAndroid_v0.30.0_WIP4_ForegroundSync_Checkpoint.zip`
+
+WIP4 SHA-256:
+`b506512dcc17336a53dd30e0419ed4a7f1a7edda44b4dc07ab2530f42745ae16`
+
+WIP3 → WIP4 recovery patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP4_ForegroundSync_from_WIP3.patch`
+
+Local patch SHA-256:
+`97083519c1235530e3da2aa1bed8e090d6ac8d4f13fc84283d29d48553f89625`
+
+WIP4 makes automatic startup/periodic sync lifecycle-aware: it begins only after local default data is ready and the app is active, stops scheduling when the app leaves the foreground, and performs a fresh check when active use resumes. Cancellation of an automatic foreground check is treated as paused work rather than a GitHub error. Manual Sync now remains independent.
+
 Purpose: implement the Android side of shared Android/Windows inventory synchronization through a user-configured private GitHub runtime data repository.
 
 Changed/added Android source in the checkpoint includes:
