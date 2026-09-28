@@ -32,15 +32,16 @@ Android implementation goals:
 6. keep authentication secret and Android-local;
 7. expose clear sync status and manual control;
 8. provide tutorial/testing guidance;
-9. build and test without modifying Windows-owned source.
+9. build and test without modifying Windows-owned source;
+10. monitor snapshot growth locally and warn at 10 MiB / 20 MiB without hard-coding repository credentials or changing protocol v1.
 
 ## Next steps
 
-1. Resume from the reviewed v0.30 WIP4 foreground-sync checkpoint.
-2. Run the full Android Gradle build with a real Android toolchain; local sync-package type/signature checks already pass.
-3. Fix only evidence-based Android build issues.
-4. Produce a v0.30 candidate.
-5. User tests Android sync against a private runtime data repository.
+1. Compile/install the reviewed v0.30 WIP5 snapshot-size-monitor checkpoint.
+2. Confirm the sync card reports snapshot size and the saved repository/token workflow is unchanged.
+3. Continue the controlled GitHub → Android pull test.
+4. Test deliberate local+remote conflict protection and remote media round-trip.
+5. Fix only evidence-based Android issues.
 6. Keep v0.29 protected until v0.30 is explicitly verified.
 7. PC/Codex independently implements the Windows side from `shared/`.
 8. Perform end-to-end Android ↔ GitHub ↔ Windows tests after a Windows candidate exists.
