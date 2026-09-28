@@ -1,0 +1,187 @@
+diff -ruN /mnt/data/boxinv_v030_wip2dir/PROJECT_MEMORY.md /mnt/data/boxinv_v030_build/PROJECT_MEMORY.md
+--- /mnt/data/boxinv_v030_wip2dir/PROJECT_MEMORY.md	2026-09-28 07:44:35.000000000 +0000
++++ /mnt/data/boxinv_v030_build/PROJECT_MEMORY.md	2026-09-28 07:59:10.710248323 +0000
+@@ -50,6 +50,8 @@
+ Current reviewed working checkpoint:
+ `BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety_Checkpoint.zip`
+ 
++Superseding reviewed source (to be packaged as WIP3): remote media-table/reference/path/size validation and bounded media download hardening are now included. WIP2 remains a recovery checkpoint.
++
+ The current review adds failed-pull rollback protection and clarifies the shared canonical array ordering contract. The new sync package passes Kotlin type/signature compilation against local Android/data interface stubs. A full Android Gradle build remains required because this execution environment does not have Gradle 9.1/Android dependencies cached and cannot download them. Exact current artifact/patch hashes are recorded in the GitHub Android checkpoint after packaging.
+ 
+ Purpose: Android client for shared Android/Windows inventory sync through a user-selected private GitHub runtime data repository.
+diff -ruN /mnt/data/boxinv_v030_wip2dir/PROJECT_STATUS.md /mnt/data/boxinv_v030_build/PROJECT_STATUS.md
+--- /mnt/data/boxinv_v030_wip2dir/PROJECT_STATUS.md	2026-09-28 07:44:34.000000000 +0000
++++ /mnt/data/boxinv_v030_build/PROJECT_STATUS.md	2026-09-28 07:59:10.710321680 +0000
+@@ -38,6 +38,7 @@
+ - media deduplication;
+ - remote photo SHA-256 validation before apply;
+ - pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
++- remote media-table/reference validation, strict protocol media paths, duplicate rejection, and bounded 50 MiB media downloads;
+ - safe first-sync choice when a remote inventory already exists;
+ - explicit conflict state when both local and remote inventory changed;
+ - explicit **Use GitHub** / **Keep this device** conflict resolution;
+diff -ruN /mnt/data/boxinv_v030_wip2dir/V0_30_NOTES.md /mnt/data/boxinv_v030_build/V0_30_NOTES.md
+--- /mnt/data/boxinv_v030_wip2dir/V0_30_NOTES.md	2026-09-28 07:43:01.000000000 +0000
++++ /mnt/data/boxinv_v030_build/V0_30_NOTES.md	2026-09-28 07:59:10.710105154 +0000
+@@ -18,6 +18,8 @@
+ - Uploads publish required media first and `current/snapshot.json` last.
+ - A snapshot is rechecked immediately before publish. If another client changed it while Android was uploading media, Android stops instead of overwriting the newer inventory.
+ - Remote photos are downloaded and SHA-256 verified before the Room database is replaced. They are stored in separate imported files so a failed pull cannot overwrite the photo paths still used by the current local database.
++- Remote media-table entries are validated before use: SHA-256 identity, protocol media path, MIME type, duplicate identity, and the 50 MiB per-file limit must be valid. Every item/additional-photo reference must point to a declared media entry; Android no longer guesses a fallback `.jpg` path for malformed snapshots.
++- GitHub media downloads use the same 50 MiB bound, including the raw-response path, and imported files preserve the declared media extension.
+ - Before replacing Room records during a pull, Android preserves the complete pre-pull logical database. After apply it rebuilds the logical snapshot and verifies the remote data hash; if Android cannot reproduce the remote state exactly, the previous Room records are restored instead of leaving a failed remote apply active.
+ 
+ ## First sync and conflict protection
+diff -ruN /mnt/data/boxinv_v030_wip2dir/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt
+--- /mnt/data/boxinv_v030_wip2dir/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt	2026-09-28 06:12:42.000000000 +0000
++++ /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt	2026-09-28 07:57:05.994091854 +0000
+@@ -28,7 +28,7 @@
+         return JSONObject(response.body).optString("sha").takeIf { it.isNotBlank() }
+     }
+ 
+-    fun getFile(path: String): RemoteFile? {
++    fun getFile(path: String, maxBytes: Long? = null): RemoteFile? {
+         val response = request(
+             "GET",
+             "/repos/${config.repositoryFullName}/contents/${encodePath(path)}?ref=${encode(config.branch)}"
+@@ -36,6 +36,10 @@
+         if (response.code == 404) return null
+         checkSuccess(response)
+         val json = JSONObject(response.body)
++        val declaredSize = json.optLong("size", -1L)
++        if (maxBytes != null && declaredSize > maxBytes) {
++            throw IllegalArgumentException("A GitHub sync file is larger than the supported ${maxBytes / 1024 / 1024} MiB limit.")
++        }
+         val encoding = json.optString("encoding")
+         val bytes = if (encoding.equals("base64", ignoreCase = true)) {
+             val content = json.optString("content").replace("\n", "")
+@@ -45,9 +49,13 @@
+             // Contents endpoint using the raw media type instead of treating that
+             // normal response as an unsupported sync file.
+             requestRaw(
+-                "/repos/${config.repositoryFullName}/contents/${encodePath(path)}?ref=${encode(config.branch)}"
++                "/repos/${config.repositoryFullName}/contents/${encodePath(path)}?ref=${encode(config.branch)}",
++                maxBytes
+             )
+         }
++        if (maxBytes != null && bytes.size.toLong() > maxBytes) {
++            throw IllegalArgumentException("A GitHub sync file is larger than the supported ${maxBytes / 1024 / 1024} MiB limit.")
++        }
+         return RemoteFile(
+             bytes = bytes,
+             blobSha = json.getString("sha")
+@@ -68,7 +76,7 @@
+         checkSuccess(response)
+     }
+ 
+-    private fun requestRaw(path: String): ByteArray {
++    private fun requestRaw(path: String, maxBytes: Long? = null): ByteArray {
+         val connection = (URL("https://api.github.com$path").openConnection() as HttpURLConnection).apply {
+             requestMethod = "GET"
+             connectTimeout = 15_000
+@@ -92,6 +100,9 @@
+                 while (true) {
+                     val read = input.read(buffer)
+                     if (read <= 0) break
++                    if (maxBytes != null && output.size().toLong() + read > maxBytes) {
++                        throw IllegalArgumentException("A GitHub sync file is larger than the supported ${maxBytes / 1024 / 1024} MiB limit.")
++                    }
+                     output.write(buffer, 0, read)
+                 }
+                 output.toByteArray()
+diff -ruN /mnt/data/boxinv_v030_wip2dir/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt
+--- /mnt/data/boxinv_v030_wip2dir/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 07:41:32.000000000 +0000
++++ /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 07:57:05.994876767 +0000
+@@ -352,8 +352,20 @@
+             val m = media.getJSONObject(i)
+             val sha = m.optString("sha256")
+             val path = m.optString("relativePath")
+-            if (sha.matches(SHA_REGEX) && path.isNotBlank()) mediaPaths[sha] = path
++            val mimeType = m.optString("mimeType")
++            val sizeBytes = m.optLong("sizeBytes", -1L)
++            require(sha.matches(SHA_REGEX)) { "Inventory Box snapshot has an invalid media SHA-256." }
++            require(MEDIA_PATH_REGEX.matches(path) && path.startsWith("$MEDIA_DIR/$sha.")) {
++                "Inventory Box snapshot has an invalid media path for $sha."
++            }
++            require(mimeType.isNotBlank()) { "Inventory Box snapshot has a media entry with no MIME type." }
++            require(sizeBytes in 1..MAX_SYNC_MEDIA_BYTES) {
++                "Inventory Box snapshot contains media outside the supported 50 MiB size limit."
++            }
++            require(sha !in mediaPaths) { "Inventory Box snapshot contains duplicate media entry $sha." }
++            mediaPaths[sha] = path
+         }
++        validateMediaReferences(root, mediaPaths.keys)
+         return RemoteSnapshot(root, snapshotFile.blobSha, declared, mediaPaths)
+     }
+ 
+@@ -752,7 +764,11 @@
+         stagingDir: File,
+         stagedBySha: MutableMap<String, File>
+     ): String {
+-        if (!sha.matches(SHA_REGEX)) return ""
++        if (sha.isBlank()) return ""
++        require(sha.matches(SHA_REGEX)) { "Inventory Box snapshot contains an invalid photo reference." }
++        val remotePath = remote.mediaPaths[sha]
++            ?: error("A photo referenced by the inventory is missing from the snapshot media table: $sha")
++        val extension = remotePath.substringAfterLast('.', "bin")
+ 
+         // Remote imports use their own permanent files rather than overwriting the
+         // Android paths that the currently-active local database may still reference.
+@@ -760,15 +776,15 @@
+         // therefore remain intact; at worst an unused imported file is left behind.
+         val safeKey = targetKey.replace(Regex("[^A-Za-z0-9_.-]"), "_")
+         val importDir = File(context.filesDir, "inventory/sync_import").apply { mkdirs() }
+-        val target = File(importDir, "$safeKey-$sha.jpg")
++        val target = File(importDir, "$safeKey-$sha.$extension")
+         if (target.exists() && target.length() > 0L && cachedFileSha(target) == sha) {
+             return target.absolutePath
+         }
+ 
+         val staged = stagedBySha.getOrPut(sha) {
+-            val remotePath = remote.mediaPaths[sha] ?: "$MEDIA_DIR/$sha.jpg"
+-            val file = client.getFile(remotePath)
++            val file = client.getFile(remotePath, MAX_SYNC_MEDIA_BYTES)
+                 ?: error("A photo referenced by the inventory is missing from GitHub: $sha")
++            require(file.bytes.isNotEmpty()) { "A GitHub photo is empty." }
+             require(sha256Hex(file.bytes) == sha) { "A GitHub photo failed SHA-256 validation." }
+             File(stagingDir, "$sha.jpg").apply { writeBytes(file.bytes) }
+         }
+@@ -787,6 +803,30 @@
+         return target.absolutePath
+     }
+ 
++
++    private fun validateMediaReferences(root: JSONObject, availableMedia: Set<String>) {
++        fun requireMediaReference(value: String) {
++            if (value.isBlank()) return
++            require(value.matches(SHA_REGEX)) { "Inventory Box snapshot contains an invalid photo reference." }
++            require(value in availableMedia) {
++                "Inventory Box snapshot references media that is missing from its media table: $value"
++            }
++        }
++
++        val items = root.optJSONArray("items") ?: JSONArray()
++        for (i in 0 until items.length()) {
++            val refs = items.getJSONObject(i).optJSONObject("mediaRefs") ?: JSONObject()
++            requireMediaReference(refs.optString("primary"))
++            requireMediaReference(refs.optString("original"))
++            requireMediaReference(refs.optString("reference"))
++        }
++
++        val photos = root.optJSONArray("itemPhotos") ?: JSONArray()
++        for (i in 0 until photos.length()) {
++            requireMediaReference(photos.getJSONObject(i).optString("mediaSha"))
++        }
++    }
++
+     private fun logicalObject(root: JSONObject): JSONObject = JSONObject()
+         .put("boxes", root.optJSONArray("boxes") ?: JSONArray())
+         .put("items", root.optJSONArray("items") ?: JSONArray())
+@@ -986,5 +1026,6 @@
+         const val MAX_SYNC_MEDIA_BYTES = 50L * 1024L * 1024L
+         val REPOSITORY_REGEX = Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
+         val SHA_REGEX = Regex("^[a-f0-9]{64}$")
++        val MEDIA_PATH_REGEX = Regex("^inventory-sync/media/[a-f0-9]{64}\\.[A-Za-z0-9]{1,12}$")
+     }
+ }
