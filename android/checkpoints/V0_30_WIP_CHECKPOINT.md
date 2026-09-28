@@ -151,3 +151,41 @@ Additional hardening:
 - manual Sync now remains independent.
 
 The sync package continues to pass local Kotlin type/signature checks. Full Android Gradle/APK build remains pending; v0.29 remains the protected VERIFIED baseline and WIP4 is not VERIFIED.
+
+## Observed WIP4 build/sync evidence
+
+The user successfully compiled WIP4 with the real Android toolchain. Android successfully published the initial runtime snapshot, later pushed an inventory item and three SHA-addressed JPEG media files, and a no-change sync reported the lightweight revision-check path. This is partial evidence only; it does not yet verify pull/conflict/full cross-platform behavior.
+
+## Reviewed WIP5 snapshot-size monitor checkpoint
+
+Status: **IN PROGRESS / NOT VERIFIED**
+
+Artifact:
+`BoxInventoryAndroid_v0.30.0_WIP5_SnapshotSizeMonitor_Checkpoint.zip`
+
+SHA-256:
+`d9426c66a3d5050034d5781d89a689fb076e7e79617deeab976f70148c821838`
+
+Incremental code patch from WIP4:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP5_SnapshotSizeMonitor_from_WIP4.patch`
+
+Code-patch SHA-256:
+`4036150be735832a450e44076375fe61a05f750487d1f6ee0c9ab8e76a607517`
+
+WIP5 behavior:
+- the sync status reports the generated local `snapshot.json` byte size after a sync check;
+- under 10 MiB is normal;
+- 10–20 MiB shows an advisory growth notice;
+- 20 MiB and above recommends planning a future chunked snapshot format;
+- the thresholds do not block synchronization;
+- photos/media remain separate from the JSON snapshot;
+- repository, branch, and token remain user-configured and are not hard-coded;
+- Inventory Sync Protocol v1 is unchanged.
+
+Static checks:
+- `SyncState.kt` compiles as pure Kotlin;
+- edited Android files show no parser/import-order errors in the available syntax scan;
+- source scan found no hard-coded runtime repository name and no `github_pat_` token literal;
+- ZIP archive integrity test passed.
+
+Exact next action: user compiles/installs WIP5 and verifies the snapshot-size line appears after Sync now. If that passes, continue with the controlled GitHub → Android pull test.
