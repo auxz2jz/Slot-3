@@ -59,14 +59,26 @@ WIP2 → WIP3 patch:
 Local WIP3 patch SHA-256:
 `c167108c9d6ecc0c35afafd0d5cb81beec9616ebff4e619458657b1c17af8785`
 
+Reviewed WIP4 artifact:
+`BoxInventoryAndroid_v0.30.0_WIP4_ForegroundSync_Checkpoint.zip`
+
+Reviewed WIP4 SHA-256:
+`b506512dcc17336a53dd30e0419ed4a7f1a7edda44b4dc07ab2530f42745ae16`
+
+WIP3 → WIP4 patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP4_ForegroundSync_from_WIP3.patch`
+
+Local WIP4 patch SHA-256:
+`97083519c1235530e3da2aa1bed8e090d6ac8d4f13fc84283d29d48553f89625`
+
 Current v0.30 work adds the Android side of **Inventory Sync Protocol v1** without moving, renaming, reorganizing, or rewriting the established Android application merely for cross-platform cleanliness.
 
 Implemented in the checkpoint:
 
 - local-first GitHub sync service;
 - separate user-selected private GitHub runtime data repository;
-- startup sync check;
-- periodic active-use checks at about five-minute intervals;
+- startup sync check after local data is ready;
+- lifecycle-aware active-use periodic sync checks at about five-minute intervals;
 - manual **Sync now**;
 - no-op detection using local logical-data hash plus remote branch revision;
 - platform-neutral snapshot JSON;
@@ -74,6 +86,7 @@ Implemented in the checkpoint:
 - photo hash validation before remote data is applied;
 - pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
 - remote media-table/reference validation, strict protocol media paths, duplicate rejection, and bounded 50 MiB media downloads;
+- automatic periodic checks are foreground/lifecycle-aware; lifecycle cancellation is not reported as a sync error;
 - first-sync protection when remote data already exists;
 - explicit conflict state when both local and remote inventory changed;
 - explicit **Use GitHub** / **Keep this device** resolution;
@@ -92,7 +105,7 @@ Static review result: the complete new sync package passes Kotlin type/signature
 
 ## Current Android task
 
-Build the reviewed v0.30 WIP3 with a real Android Gradle toolchain, fix only evidence-based build issues if any, and present the resulting Android candidate for testing. Do not modify the Windows implementation.
+Build the reviewed v0.30 WIP4 with a real Android Gradle toolchain, fix only evidence-based build issues if any, and present the resulting Android candidate for testing. Do not modify the Windows implementation.
 
 ## Ownership boundary
 
