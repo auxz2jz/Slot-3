@@ -101,6 +101,10 @@ Before hashing or publishing a snapshot, clients must place records in these det
 
 Within JSON objects, keys are canonicalized in ascending lexical order when calculating `dataHash`. Array order is significant, so every platform must use the ordering above rather than relying on database-return order. This ordering requirement applies to the logical arrays used for hashing and to the arrays written into `snapshot.json`.
 
+### Canonical scalar encoding for protocol v1
+
+The logical hash uses UTF-8 JSON semantics with no insignificant whitespace. Strings use normal JSON escaping, booleans are lowercase JSON `true` / `false`, null is JSON `null`, and integer values are base-10 JSON numbers without locale formatting. Android publishes `aiConfidence` as a JSON string with exactly six decimal places using `.` as the decimal separator (example: `"0.875000"`) so both platforms can hash it identically.
+
 ## Boxes
 
 Portable box fields currently include:
@@ -116,39 +120,48 @@ Portable box fields currently include:
 - locationName
 - areaName
 
+Protocol-v1 box value conventions:
+
+- `routingMode` is `AUTO` or `MANUAL_CATEGORY`;
+- `manualCategory` is an empty string when no manual category is selected;
+- `capacityStatus` uses `AVAILABLE`, `HALF`, `NEARLY_FULL`, or `FULL`.
+
 ## Items
 
-Portable item fields currently include:
+Portable item fields and protocol-v1 JSON types are:
 
-- id
-- name
-- normalizedName
-- category
-- boxId
-- note
-- description
-- quantity
-- createdAt
-- recognition/product metadata retained by the product
-- crop coordinates when present
-- productBarcode
-- productBrand
-- productDescription
-- productSource
-- referenceSourceUrl
-- itemStatus
-- statusNote
-- isFavorite
-- serialNumber
-- modelNumber
-- purchasePriceCents
-- purchaseStore
-- purchaseDate
-- warrantyExpiration
-- warrantyNote
-- isArchived
-- archivedAt
-- mediaRefs
+- `id`: string
+- `name`: string
+- `normalizedName`: string
+- `category`: string
+- `boxId`: string
+- `note`: string
+- `description`: string
+- `quantity`: integer
+- `createdAt`: integer timestamp in milliseconds
+- `aiPrimaryLabel`: string
+- `aiConfidence`: string formatted with exactly six decimal places, locale-independent
+- `aiCandidates`: string
+- `recognitionSource`: string
+- `cropLeft`, `cropTop`, `cropRight`, `cropBottom`: integer or JSON null
+- `productBarcode`: string
+- `productBrand`: string
+- `productDescription`: string
+- `productSource`: string
+- `referenceSourceUrl`: string
+- `itemStatus`: string; Android values are `IN_BOX`, `LOANED`, or `MISSING`
+- `statusNote`: string
+- `isFavorite`: boolean
+- `serialNumber`: string
+- `modelNumber`: string
+- `purchasePriceCents`: integer
+- `purchaseStore`: string
+- `purchaseDate`: integer timestamp in milliseconds, `0` when unset
+- `warrantyExpiration`: integer timestamp in milliseconds, `0` when unset
+- `warrantyNote`: string
+- `isArchived`: boolean
+- `archivedAt`: integer timestamp in milliseconds, `0` when unset
+- `mediaRefs`: object described below
 
 `mediaRefs` uses SHA-256 identifiers:
 
