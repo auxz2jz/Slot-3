@@ -22,6 +22,14 @@ SHA-256:
 
 The checkpoint ZIP passed archive-integrity testing.
 
+A reconstructable unified diff is also stored in GitHub:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP.patch`
+
+Patch SHA-256 from the saved local checkpoint:
+`0fa0211e30001985ee89e1eb0f035b9ba225f549eb3265162a0080c50ea1f9fe`
+
+The patch captures the exact v0.29 → current v0.30 WIP text/source changes and is intended as an additional recovery path.
+
 ## What changed
 
 The Android tree now contains an initial Android implementation of Inventory Sync Protocol v1.
