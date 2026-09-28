@@ -97,3 +97,31 @@ Build status:
 - the review environment did not have Gradle 9.1/Android dependencies cached and could not download them.
 
 Exact next action: build WIP2 with a real Android Gradle toolchain, then fix only actual build/test evidence before producing the device-test candidate.
+
+## Reviewed WIP3 media safety checkpoint
+
+Status: **IN PROGRESS / NOT VERIFIED**
+
+Artifact:
+`BoxInventoryAndroid_v0.30.0_WIP3_MediaSafety_Checkpoint.zip`
+
+SHA-256:
+`7a2d03bfbc5d2ae2461df76ffa39f71b6182195ceb46bd80b6068b6fdddafdf1`
+
+Incremental patch from WIP2:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP3_MediaSafety_from_WIP2.patch`
+
+Local incremental patch SHA-256:
+`c167108c9d6ecc0c35afafd0d5cb81beec9616ebff4e619458657b1c17af8785`
+
+Additional hardening:
+- every remote media entry must have a valid SHA-256, protocol path, nonblank MIME type, unique identity, and supported size;
+- every item/additional-photo media reference must exist in the snapshot media table;
+- Android no longer guesses a fallback JPG path for undeclared remote media;
+- remote media downloads are bounded to 50 MiB, including raw GitHub content responses;
+- imported files retain the declared media extension;
+- the updated sync package passes Kotlin type/signature compilation against local Android/data interface stubs.
+
+Shared media-contract commit: `d2fdaa6598dcc6688df620db6ab44f197ea9f9b2`.
+
+Full Android Gradle/APK build remains pending because the complete Android source is artifact-based rather than checked into Slot-3 and this execution environment cannot download the required Gradle/Android toolchain. WIP3 remains unverified.
