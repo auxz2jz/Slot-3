@@ -35,6 +35,18 @@ GitHub reconstructable source patch:
 Patch SHA-256 from the saved local checkpoint:
 `0fa0211e30001985ee89e1eb0f035b9ba225f549eb3265162a0080c50ea1f9fe`
 
+Reviewed WIP2 artifact:
+`BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety_Checkpoint.zip`
+
+Reviewed WIP2 SHA-256:
+`ddafd842c665300c88d39e9ccbe653fa63fe01e818ed8cf11b2da0c921d1353f`
+
+Incremental WIP2 patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety.patch`
+
+Incremental patch SHA-256:
+`0ae88f2671837942cb2fdbffc25269e683beda6a99f8c23bab4daa3a77a99630`
+
 Current v0.30 work adds the Android side of **Inventory Sync Protocol v1** without moving, renaming, reorganizing, or rewriting the established Android application merely for cross-platform cleanliness.
 
 Implemented in the checkpoint:
@@ -48,6 +60,7 @@ Implemented in the checkpoint:
 - platform-neutral snapshot JSON;
 - SHA-256 content-addressed photo/media storage and deduplication;
 - photo hash validation before remote data is applied;
+- pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
 - first-sync protection when remote data already exists;
 - explicit conflict state when both local and remote inventory changed;
 - explicit **Use GitHub** / **Keep this device** resolution;
@@ -62,9 +75,11 @@ Local backup format: v12
 
 This checkpoint is not VERIFIED until the user builds/tests it.
 
+Static review result: the complete new sync package passes Kotlin type/signature compilation against local Android/data interface stubs. Full Gradle/APK build remains pending because the review environment lacks the Gradle 9.1/Android dependency cache and cannot download it.
+
 ## Current Android task
 
-Resume from the v0.30 checkpoint, validate/build the Android candidate, and present it for Android testing. Do not modify the Windows implementation.
+Build the reviewed v0.30 WIP2 with a real Android Gradle toolchain, fix only evidence-based build issues if any, and present the resulting Android candidate for testing. Do not modify the Windows implementation.
 
 ## Ownership boundary
 
