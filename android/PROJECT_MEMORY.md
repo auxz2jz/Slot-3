@@ -74,6 +74,21 @@ WIP2 review result:
 Shared protocol hardening commits:
 - `e64607b2636acb60cae7e7dc3370fa9dac53167d` — canonical array ordering and failed-pull safety requirement;
 - `8b009958890cef93afe84f4f056158d9c51c0489` — explicit protocol-v1 field/scalar types for cross-platform hash parity.
+- `d2fdaa6598dcc6688df620db6ab44f197ea9f9b2` — require declared, bounded, valid media entries and references.
+
+Current reviewed WIP3 checkpoint:
+`BoxInventoryAndroid_v0.30.0_WIP3_MediaSafety_Checkpoint.zip`
+
+WIP3 SHA-256:
+`7a2d03bfbc5d2ae2461df76ffa39f71b6182195ceb46bd80b6068b6fdddafdf1`
+
+WIP2 → WIP3 recovery patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP3_MediaSafety_from_WIP2.patch`
+
+Local patch SHA-256:
+`c167108c9d6ecc0c35afafd0d5cb81beec9616ebff4e619458657b1c17af8785`
+
+WIP3 additionally rejects malformed/undeclared/duplicate/oversized remote media, bounds media downloads to 50 MiB, and preserves declared media extensions. The complete sync package still passes Kotlin type/signature compilation against local Android/data interface stubs.
 
 Purpose: implement the Android side of shared Android/Windows inventory synchronization through a user-configured private GitHub runtime data repository.
 
