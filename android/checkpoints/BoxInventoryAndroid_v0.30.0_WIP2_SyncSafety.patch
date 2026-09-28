@@ -1,0 +1,136 @@
+diff -ruN /mnt/data/boxinv_v030_original/PROJECT_MEMORY.md /mnt/data/boxinv_v030_build/PROJECT_MEMORY.md
+--- /mnt/data/boxinv_v030_original/PROJECT_MEMORY.md	2026-09-28 06:31:55.000000000 +0000
++++ /mnt/data/boxinv_v030_build/PROJECT_MEMORY.md	2026-09-28 07:44:35.613630504 +0000
+@@ -43,6 +43,15 @@
+ 
+ **v0.30.0 / build 34 — IN PROGRESS / NOT VERIFIED**
+ 
++Original handoff checkpoint:
++`BoxInventoryAndroid_v0.30.0_WIP_CrossPlatformSync_Checkpoint.zip`
++SHA-256: `9f4fe7f828e0ad382e07305c4b18c7f3c284514e0cffd0bb944d3a88a7287f9d`
++
++Current reviewed working checkpoint:
++`BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety_Checkpoint.zip`
++
++The current review adds failed-pull rollback protection and clarifies the shared canonical array ordering contract. The new sync package passes Kotlin type/signature compilation against local Android/data interface stubs. A full Android Gradle build remains required because this execution environment does not have Gradle 9.1/Android dependencies cached and cannot download them. Exact current artifact/patch hashes are recorded in the GitHub Android checkpoint after packaging.
++
+ Purpose: Android client for shared Android/Windows inventory sync through a user-selected private GitHub runtime data repository.
+ 
+ Important source added/changed:
+diff -ruN /mnt/data/boxinv_v030_original/PROJECT_STATUS.md /mnt/data/boxinv_v030_build/PROJECT_STATUS.md
+--- /mnt/data/boxinv_v030_original/PROJECT_STATUS.md	2026-09-28 06:31:56.000000000 +0000
++++ /mnt/data/boxinv_v030_build/PROJECT_STATUS.md	2026-09-28 07:44:34.565675894 +0000
+@@ -14,7 +14,7 @@
+ Verified artifact SHA-256:
+ `e581dd5415eed02de970d40ea00b84d6589184db1ead022fb68bffa91c477afe`
+ 
+-Database: v12  
++Database: v12
+ Backup format: v12
+ 
+ ## Latest Android work-in-progress checkpoint
+@@ -37,6 +37,7 @@
+ - SHA-256 content-addressed media under `inventory-sync/media/`;
+ - media deduplication;
+ - remote photo SHA-256 validation before apply;
++- pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
+ - safe first-sync choice when a remote inventory already exists;
+ - explicit conflict state when both local and remote inventory changed;
+ - explicit **Use GitHub** / **Keep this device** conflict resolution;
+@@ -45,11 +46,15 @@
+ 
+ Protocol: Inventory Sync Protocol v1 / snapshot schema v1.
+ 
+-Room database remains v12.  
++Room database remains v12.
+ Local `.boxbackup` format remains v12.
+ 
+ This checkpoint has not been user-tested and must not replace the verified v0.29 baseline.
+ 
++### Handoff review hardening
++
++The reviewed WIP adds rollback protection for remote pulls and the shared Android/Windows protocol now explicitly defines canonical array ordering. The new sync package passes Kotlin type/signature compilation against local Android/data interface stubs. Full Gradle/APK build is still pending because the current execution environment lacks the Gradle 9.1 distribution/Android dependency cache and cannot download it.
++
+ ## Cross-platform ownership boundary
+ 
+ Inventory Box is now **one product with two separate platform implementations**.
+@@ -89,4 +94,4 @@
+ 
+ ## Exact next action
+ 
+-Resume from this checkpoint, review the v0.30 sync implementation against the shared cross-platform protocol, run/build the Android candidate, and present it for user testing. Do not modify the Windows implementation.
++Build the reviewed v0.30 WIP with a real Android Gradle toolchain, fix only evidence-based build issues if any, then produce the Android candidate for device testing. Do not modify the Windows implementation.
+diff -ruN /mnt/data/boxinv_v030_original/V0_30_NOTES.md /mnt/data/boxinv_v030_build/V0_30_NOTES.md
+--- /mnt/data/boxinv_v030_original/V0_30_NOTES.md	2026-09-28 06:19:33.000000000 +0000
++++ /mnt/data/boxinv_v030_build/V0_30_NOTES.md	2026-09-28 07:43:01.361709366 +0000
+@@ -18,6 +18,7 @@
+ - Uploads publish required media first and `current/snapshot.json` last.
+ - A snapshot is rechecked immediately before publish. If another client changed it while Android was uploading media, Android stops instead of overwriting the newer inventory.
+ - Remote photos are downloaded and SHA-256 verified before the Room database is replaced. They are stored in separate imported files so a failed pull cannot overwrite the photo paths still used by the current local database.
++- Before replacing Room records during a pull, Android preserves the complete pre-pull logical database. After apply it rebuilds the logical snapshot and verifies the remote data hash; if Android cannot reproduce the remote state exactly, the previous Room records are restored instead of leaving a failed remote apply active.
+ 
+ ## First sync and conflict protection
+ 
+diff -ruN /mnt/data/boxinv_v030_original/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt
+--- /mnt/data/boxinv_v030_original/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 06:21:40.000000000 +0000
++++ /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 07:41:32.941078869 +0000
+@@ -297,10 +297,6 @@
+     ) {
+         _state.value = _state.value.copy(message = "Downloading the shared inventory…")
+         applyRemoteSnapshot(client, remote)
+-        val rebuilt = buildLocalSnapshot()
+-        require(rebuilt.dataHash == remote.dataHash) {
+-            "The downloaded snapshot could not be reproduced locally. No automatic upload will be attempted."
+-        }
+         val anchoredHead = remoteHead ?: client.headCommitSha().orEmpty()
+         recordSuccess(remote.dataHash, anchoredHead)
+         val newestHead = client.headCommitSha().orEmpty()
+@@ -702,7 +698,47 @@
+             )
+         }
+ 
+-        repository.replaceAll(boxes, items, routes, custom, aliases, moves, shopping, itemPhotos)
++        // Preserve the complete pre-pull logical database until the remote snapshot has
++        // been applied and reproduced successfully on Android. A remote snapshot may be
++        // hash-valid yet contain ordering or values that Android normalizes differently.
++        // In that case, restore the previous records instead of leaving the device in a
++        // destructive half-accepted state. Imported media files are separate and may be
++        // left unused; the previous database continues pointing at its original files.
++        val previousBoxes = repository.allBoxes()
++        val previousItems = repository.allItems()
++        val previousPhotos = repository.allItemPhotos()
++        val previousRoutes = repository.allLearnedRoutes()
++        val previousCustom = repository.allCustomCategories()
++        val previousAliases = repository.allCategoryAliases()
++        val previousMoves = repository.allMoveHistory()
++        val previousShopping = repository.allShoppingItems()
++        var remoteApplied = false
++        try {
++            repository.replaceAll(boxes, items, routes, custom, aliases, moves, shopping, itemPhotos)
++            remoteApplied = true
++            val rebuilt = buildLocalSnapshot()
++            require(rebuilt.dataHash == remote.dataHash) {
++                "The downloaded snapshot could not be reproduced locally. The previous Android inventory was restored."
++            }
++        } catch (error: Throwable) {
++            if (remoteApplied) {
++                try {
++                    repository.replaceAll(
++                        previousBoxes,
++                        previousItems,
++                        previousRoutes,
++                        previousCustom,
++                        previousAliases,
++                        previousMoves,
++                        previousShopping,
++                        previousPhotos
++                    )
++                } catch (restoreError: Throwable) {
++                    error.addSuppressed(restoreError)
++                }
++            }
++            throw error
++        }
+         } finally {
+             stagingDir.deleteRecursively()
+         }
