@@ -53,6 +53,24 @@ Reconstructable GitHub patch:
 Patch SHA-256:
 `0fa0211e30001985ee89e1eb0f035b9ba225f549eb3265162a0080c50ea1f9fe`
 
+Reviewed WIP2 checkpoint artifact:
+`BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety_Checkpoint.zip`
+
+Reviewed WIP2 SHA-256:
+`ddafd842c665300c88d39e9ccbe653fa63fe01e818ed8cf11b2da0c921d1353f`
+
+Incremental GitHub patch from the original v0.30 handoff:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety.patch`
+
+Incremental patch SHA-256:
+`0ae88f2671837942cb2fdbffc25269e683beda6a99f8c23bab4daa3a77a99630`
+
+WIP2 review result:
+- added pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
+- shared protocol now defines exact canonical array ordering for Android/Windows hashes;
+- the complete sync package passes Kotlin type/signature compilation against local Android/data interface stubs;
+- full Gradle/APK build remains pending because the review environment lacks the Gradle 9.1/Android dependency cache and cannot download it.
+
 Purpose: implement the Android side of shared Android/Windows inventory synchronization through a user-configured private GitHub runtime data repository.
 
 Changed/added Android source in the checkpoint includes:
