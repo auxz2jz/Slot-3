@@ -85,6 +85,22 @@ A client must refuse destructive apply when it encounters an unsupported newer p
 
 The purpose is to detect whether the logical shared inventory changed without relying on platform-local database timestamps or file paths.
 
+### Canonical ordering for protocol v1
+
+Before hashing or publishing a snapshot, clients must place records in these deterministic orders:
+
+- `boxes`: ascending by `id`;
+- `items`: ascending by `id`;
+- `itemPhotos`: ascending by `id`;
+- `learnedRoutes`: ascending by `normalizedName`;
+- `customCategories`: ascending by `id`;
+- `categoryAliases`: ascending by `id`;
+- `moveHistory`: ascending by `id`;
+- `shoppingItems`: ascending by `id`;
+- `media`: ascending by lowercase `sha256`.
+
+Within JSON objects, keys are canonicalized in ascending lexical order when calculating `dataHash`. Array order is significant, so every platform must use the ordering above rather than relying on database-return order. This ordering requirement applies to the logical arrays used for hashing and to the arrays written into `snapshot.json`.
+
 ## Boxes
 
 Portable box fields currently include:
@@ -290,6 +306,7 @@ Protocol v1 minimum choices:
 - Download required media to staging/local imported files.
 - Validate each downloaded media file by SHA-256.
 - Only then replace/reconcile local logical records to the remote snapshot.
+- A client must not leave a failed remote apply as the active local inventory. If post-apply canonical/hash verification fails, preserve or restore the pre-pull local records before reporting the sync failure.
 
 ## Permanent deletion
 
