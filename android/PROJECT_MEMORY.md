@@ -47,6 +47,12 @@ Checkpoint artifact:
 SHA-256:
 `9f4fe7f828e0ad382e07305c4b18c7f3c284514e0cffd0bb944d3a88a7287f9d`
 
+Reconstructable GitHub patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP.patch`
+
+Patch SHA-256:
+`0fa0211e30001985ee89e1eb0f035b9ba225f549eb3265162a0080c50ea1f9fe`
+
 Purpose: implement the Android side of shared Android/Windows inventory synchronization through a user-configured private GitHub runtime data repository.
 
 Changed/added Android source in the checkpoint includes:
