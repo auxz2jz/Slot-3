@@ -2,21 +2,22 @@
 
 ## Purpose
 
-This document defines the platform-neutral contract Android and Windows use to exchange inventory state.
+This document is the platform-neutral contract Android and Windows use to exchange shared inventory state.
 
-This is a **runtime data contract**, not a requirement to share database engines or source code.
+It is a runtime data contract, not a requirement to share database engines, source code, UI code, or local file paths.
 
 ## Runtime repository
 
-Use a separate **private GitHub repository** selected/configured by the user.
+Synchronization uses a separate **private GitHub repository** selected/configured by the user.
 
-The source/coordination repository and runtime inventory-data repository are different responsibilities.
+This source/coordination repository and the runtime inventory-data repository have different responsibilities.
 
-## Sync protocol version
+## Inventory Sync Protocol v1
 
-Initial contract: **Inventory Sync Protocol v1**
+Protocol version: **1**  
+Snapshot schema version: **1**
 
-Protocol v1 is local-first and snapshot-based with media deduplication and conflict protection.
+Protocol v1 is local-first, snapshot-based, content-addressed for media, and conflict-safe.
 
 ## Repository layout
 
@@ -26,14 +27,12 @@ Protocol v1 is local-first and snapshot-based with media deduplication and confl
   current/
     snapshot.json
   media/
-    <sha256>.jpg
+    <sha256>.<extension>
 ```
 
-Future versions may add history/change-batch directories without invalidating v1 readers.
+Current Android supports image extensions according to detected media type. The SHA-256 content ID, not the extension or local path, is the portable media identity.
 
 ## protocol.json
-
-Minimum fields:
 
 ```json
 {
@@ -43,11 +42,9 @@ Minimum fields:
 }
 ```
 
-## snapshot.json
+A client must refuse destructive apply when it encounters an unsupported newer protocol or snapshot schema.
 
-The snapshot contains platform-neutral logical data only.
-
-Minimum envelope:
+## snapshot.json envelope
 
 ```json
 {
@@ -70,140 +67,260 @@ Minimum envelope:
 }
 ```
 
-## Portable IDs
+`snapshotId`, `generatedAtUtc`, and `sourceDeviceId` are envelope metadata and are not part of the canonical logical-data hash.
 
-Existing stable record IDs must be preserved.
+## Canonical logical data hash
 
-Do not use local file paths as IDs.
+`dataHash` is SHA-256 over a deterministic/canonical representation of these logical arrays:
 
-## Photos/media
+- boxes
+- items
+- itemPhotos
+- learnedRoutes
+- customCategories
+- categoryAliases
+- moveHistory
+- shoppingItems
+- media
 
-Every shared image is represented by a SHA-256 content identifier.
+The purpose is to detect whether the logical shared inventory changed without relying on platform-local database timestamps or file paths.
 
-Example media entry:
+## Boxes
+
+Portable box fields currently include:
+
+- id
+- number
+- name
+- userDescription
+- routingMode
+- manualCategory
+- qrValue
+- capacityStatus
+- locationName
+- areaName
+
+## Items
+
+Portable item fields currently include:
+
+- id
+- name
+- normalizedName
+- category
+- boxId
+- note
+- description
+- quantity
+- createdAt
+- recognition/product metadata retained by the product
+- crop coordinates when present
+- productBarcode
+- productBrand
+- productDescription
+- productSource
+- referenceSourceUrl
+- itemStatus
+- statusNote
+- isFavorite
+- serialNumber
+- modelNumber
+- purchasePriceCents
+- purchaseStore
+- purchaseDate
+- warrantyExpiration
+- warrantyNote
+- isArchived
+- archivedAt
+- mediaRefs
+
+`mediaRefs` uses SHA-256 identifiers:
 
 ```json
 {
-  "sha256": "<64-hex>",
-  "relativePath": "inventory-sync/media/<sha256>.jpg",
-  "mimeType": "image/jpeg",
-  "role": "PRIMARY",
-  "itemId": "<item-uuid>",
-  "photoId": "<optional-photo-uuid>"
+  "primary": "<sha256-or-empty>",
+  "original": "<sha256-or-empty>",
+  "reference": "<sha256-or-empty>"
 }
 ```
 
-Recommended roles:
+Platform-local file paths are never synchronized.
 
-- PRIMARY
-- ORIGINAL
-- REFERENCE
-- ADDITIONAL
+## Additional item photos
 
-A platform maps the media SHA to its own local file path after download.
+```json
+{
+  "id": "<photo-id>",
+  "itemId": "<item-id>",
+  "position": 0,
+  "createdAt": 0,
+  "mediaSha": "<sha256>"
+}
+```
 
-A media blob already present remotely by SHA-256 is not uploaded again.
+A photo row whose backing media no longer exists locally is not published as a portable additional-photo record.
 
-For GitHub practicality, clients may create a normalized synchronization copy of very large photos while preserving the local original. If used, this behavior must be documented consistently by both platforms.
+## Learned routes
 
-## Local-only fields
+Portable fields:
+
+- normalizedName
+- boxId
+- updatedAt
+
+## Custom categories
+
+Portable fields:
+
+- id
+- name
+- createdAt
+
+## Category aliases
+
+Portable fields:
+
+- id
+- alias
+- category
+- createdAt
+
+## Move history
+
+Portable fields:
+
+- id
+- itemId
+- fromBoxId
+- toBoxId
+- movedAt
+- reason
+
+## Shopping items
+
+Portable fields:
+
+- id
+- name
+- normalizedName
+- quantity
+- note
+- store
+- priority
+- purchased
+- createdAt
+- updatedAt
+
+## Media entries
+
+```json
+{
+  "sha256": "<64-lowercase-hex>",
+  "relativePath": "inventory-sync/media/<sha256>.<extension>",
+  "mimeType": "<mime-type>",
+  "sizeBytes": 12345
+}
+```
+
+The media table is deduplicated by SHA-256. Multiple item/photo references may point to the same media SHA.
+
+Current Android protocol implementation rejects a single synchronization media file larger than 50 MiB.
+
+## Local-only information
 
 Do not synchronize:
 
-- Android/Windows absolute file paths
-- theme/appearance preference
-- tutorial completion state
-- window geometry
-- last-open screen
-- authentication tokens
-- platform-specific build/test state
+- Android or Windows absolute file paths;
+- theme/appearance preference;
+- tutorial completion state;
+- window geometry;
+- last-open screen/navigation state;
+- authentication tokens or API credentials;
+- platform-specific build/test/checkpoint information.
 
-## Sync state stored locally per platform
+## Local sync anchors
 
-Each client stores at minimum:
+Each platform stores locally at minimum:
 
-- configured repository owner/name
-- configured branch
-- stable local device ID
-- last successful remote commit SHA
-- last successfully synchronized data hash
-- local dirty/pending state
-- last successful sync time
-- current sync status/error
+- configured runtime repository owner/name;
+- configured branch;
+- stable local device ID;
+- last successful remote commit SHA;
+- last successfully synchronized logical data hash;
+- last successful sync time;
+- current sync state/error.
 
-Secrets such as GitHub tokens remain in platform secure storage and never appear in snapshot.json.
+Credentials remain in platform secure storage.
 
 ## Normal sync algorithm
 
-1. Read local sync configuration.
-2. Fetch the configured branch's current remote commit SHA.
-3. Compare it to the client's last successful remote commit SHA.
-4. Check whether local shared data is dirty/changed.
-5. If remote unchanged AND local unchanged: stop; no payload upload/download.
-6. If remote changed AND local unchanged: download/apply the current snapshot and missing media.
-7. If remote unchanged AND local changed: build snapshot, upload missing media, then upload snapshot last.
-8. If remote changed AND local changed: enter CONFLICT; do not silently overwrite either side.
-9. On success, record the new remote commit SHA/data hash and clear local pending state.
+1. Build/measure current local logical shared state.
+2. Read the configured GitHub branch head commit SHA.
+3. Compare local logical hash with the last successfully synchronized hash.
+4. Compare remote head with the last successfully synchronized remote commit.
+5. If both are unchanged, stop after the lightweight revision check; transfer no inventory/photo payload.
+6. If remote changed and local did not, read/apply the current snapshot and missing media.
+7. If local changed and remote did not, upload missing media and publish a new snapshot.
+8. If both local and remote changed, enter **CONFLICT** and do not silently overwrite either side.
+9. After success, record the new logical hash, remote commit, and success time.
 
-## Upload ordering
+## First sync
 
-Upload missing media first.
+If no remote Inventory Box snapshot exists, the client may publish the current local inventory as the initial snapshot.
 
-Upload `current/snapshot.json` last.
+If a remote snapshot already exists and the client has no prior successful sync anchor, the client must require an explicit choice before replacing either side.
 
-This ensures a published snapshot never intentionally references media that the same sync has not yet attempted to publish.
+Protocol v1 minimum choices:
 
-## Startup sync
+- **Use GitHub** — explicitly apply the remote shared inventory locally.
+- **Keep this device** — explicitly publish the local shared inventory as current remote state.
 
-Both platforms should perform a sync check at startup after local data is available.
+## Upload ordering and race protection
 
-The UI should not need to block on sync before showing existing local inventory.
+1. Validate/create `protocol.json`.
+2. Upload required missing media first.
+3. Re-check the remote current snapshot before final publish.
+4. If another client changed the remote snapshot during upload, stop rather than overwrite it.
+5. Publish `current/snapshot.json` last.
 
-## Periodic sync
+## Download/apply safety
 
-Foreground/active-use checks may run every few minutes when practical.
+- Validate protocol/schema before apply.
+- Validate snapshot `dataHash`.
+- Download required media to staging/local imported files.
+- Validate each downloaded media file by SHA-256.
+- Only then replace/reconcile local logical records to the remote snapshot.
 
-Android background scheduling is subject to Android OS scheduling limits and should use platform-supported background work rather than pretending exact few-minute wakeups are guaranteed.
+## Permanent deletion
 
-Windows may use a different background/foreground schedule.
+Protocol v1 snapshot represents complete current logical state.
 
-## Conflict behavior — protocol v1
+Permanent deletion removes the record from a newly published snapshot. A client applying a remote snapshot must reconcile to the snapshot rather than only append records.
 
-Protocol v1 prioritizes data safety over silent automatic merging.
+Archived records remain represented until permanently deleted.
 
-If the remote commit changed since the client's last successful sync AND the local shared inventory also changed:
+## Startup and periodic checks
+
+Both platforms should check for remote changes at startup after local data is available.
+
+Foreground/active-use periodic checks may run every few minutes when practical.
+
+Exact scheduling is platform-specific. Android background scheduling remains subject to Android OS scheduling limits.
+
+## Conflict policy
+
+Protocol v1 favors data safety over automatic field-level merging.
+
+If local and remote both changed since the last successful common anchor:
 
 - status becomes CONFLICT;
-- neither side is overwritten automatically;
-- user-facing resolution must preserve an opportunity to keep/backup either side.
+- no silent overwrite occurs;
+- the user explicitly chooses which shared state becomes authoritative.
 
-Minimum safe choices when implemented:
+A future protocol revision may add record/field-level merge only after both platforms implement the same rules and tests.
 
-- Use GitHub version (discard local unsynced shared changes after explicit confirmation)
-- Keep this device version (replace remote current snapshot after explicit confirmation)
+## Security
 
-A future protocol may add record/field-level merge after both platforms implement the same rules and tests.
-
-## Deletion
-
-Snapshot v1 represents the complete current logical state, including archived records.
-
-Permanent deletion removes the record from a newly published snapshot. A client applying a remote snapshot must therefore reconcile to the snapshot rather than only append records.
-
-## Compatibility
-
-A client must refuse destructive apply when it encounters an unsupported newer `protocolVersion` or `snapshotSchemaVersion`.
-
-It should report the incompatibility rather than guessing.
-
-## Repository API expectations
-
-The clients may use GitHub REST APIs to:
-
-- read the branch/repository revision;
-- read `protocol.json` and `current/snapshot.json`;
-- check for a media blob by path;
-- upload missing media;
-- update the current snapshot.
-
-Exact HTTP/library implementation is platform-specific.
+- Runtime data repository should be private.
+- Tokens/credentials must never appear in shared JSON or committed source.
+- Each platform is responsible for secure local credential storage.
