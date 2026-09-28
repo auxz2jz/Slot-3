@@ -104,6 +104,20 @@ Local patch SHA-256:
 
 WIP4 makes automatic startup/periodic sync lifecycle-aware: it begins only after local default data is ready and the app is active, stops scheduling when the app leaves the foreground, and performs a fresh check when active use resumes. Cancellation of an automatic foreground check is treated as paused work rather than a GitHub error. Manual Sync now remains independent.
 
+Current reviewed WIP5 checkpoint:
+`BoxInventoryAndroid_v0.30.0_WIP5_SnapshotSizeMonitor_Checkpoint.zip`
+
+WIP5 SHA-256:
+`d9426c66a3d5050034d5781d89a689fb076e7e79617deeab976f70148c821838`
+
+WIP4 → WIP5 recovery patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP5_SnapshotSizeMonitor_from_WIP4.patch`
+
+WIP5 code-patch SHA-256:
+`4036150be735832a450e44076375fe61a05f750487d1f6ee0c9ab8e76a607517`
+
+WIP5 adds a local-only snapshot-size monitor. The Settings sync card reports the generated `snapshot.json` size; under 10 MiB is normal, 10–20 MiB shows an advisory growth notice, and 20 MiB or more recommends planning a future chunked snapshot format. The thresholds never block sync. Repository, branch, and token remain user-configured; none are hard-coded.
+
 Purpose: implement the Android side of shared Android/Windows inventory synchronization through a user-configured private GitHub runtime data repository.
 
 Changed/added Android source in the checkpoint includes:
@@ -117,6 +131,10 @@ Changed/added Android source in the checkpoint includes:
 - `app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt`
 - `app/build.gradle.kts`
 - `V0_30_NOTES.md`
+
+## Observed v0.30 Android test evidence
+
+WIP4 was compiled successfully by the user on the real Android toolchain. The user-configured private runtime repository accepted the initial Android publish. A subsequent Android push successfully published an inventory item, quantity/category/status/identifier metadata, learned routing, and three SHA-addressed JPEG media files. A no-change sync also reported that only the lightweight GitHub revision check was needed. These are partial v0.30 tests only; WIP5 still requires compile/device confirmation and the GitHub → Android pull/conflict tests remain pending.
 
 ## Sync design checkpoint
 
