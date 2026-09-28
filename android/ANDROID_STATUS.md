@@ -29,6 +29,12 @@ Checkpoint source artifact:
 Checkpoint SHA-256:
 `9f4fe7f828e0ad382e07305c4b18c7f3c284514e0cffd0bb944d3a88a7287f9d`
 
+GitHub reconstructable source patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP.patch`
+
+Patch SHA-256 from the saved local checkpoint:
+`0fa0211e30001985ee89e1eb0f035b9ba225f549eb3265162a0080c50ea1f9fe`
+
 Current v0.30 work adds the Android side of **Inventory Sync Protocol v1** without moving, renaming, reorganizing, or rewriting the established Android application merely for cross-platform cleanliness.
 
 Implemented in the checkpoint:
