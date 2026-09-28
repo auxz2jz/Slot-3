@@ -1,0 +1,194 @@
+diff -ruN /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/PROJECT_MEMORY.md /mnt/data/boxinv_v030_build/PROJECT_MEMORY.md
+--- /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/PROJECT_MEMORY.md	2026-09-28 07:59:10.000000000 +0000
++++ /mnt/data/boxinv_v030_build/PROJECT_MEMORY.md	2026-09-28 08:06:29.580693165 +0000
+@@ -47,12 +47,12 @@
+ `BoxInventoryAndroid_v0.30.0_WIP_CrossPlatformSync_Checkpoint.zip`
+ SHA-256: `9f4fe7f828e0ad382e07305c4b18c7f3c284514e0cffd0bb944d3a88a7287f9d`
+ 
+-Current reviewed working checkpoint:
+-`BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety_Checkpoint.zip`
++Current reviewed source is being packaged as WIP4 after three focused hardening passes:
++- WIP2: failed-pull rollback protection;
++- WIP3: strict remote media-table/reference/path/size validation and bounded media downloads;
++- WIP4: lifecycle-aware foreground/active-use periodic synchronization.
+ 
+-Superseding reviewed source (to be packaged as WIP3): remote media-table/reference/path/size validation and bounded media download hardening are now included. WIP2 remains a recovery checkpoint.
+-
+-The current review adds failed-pull rollback protection and clarifies the shared canonical array ordering contract. The new sync package passes Kotlin type/signature compilation against local Android/data interface stubs. A full Android Gradle build remains required because this execution environment does not have Gradle 9.1/Android dependencies cached and cannot download them. Exact current artifact/patch hashes are recorded in the GitHub Android checkpoint after packaging.
++The sync package passes Kotlin type/signature compilation against local Android/data interface stubs. Lifecycle APIs used by the UI integration were cross-checked against the official AndroidX Lifecycle Compose API. A full Android Gradle build remains required because this execution environment does not have the Gradle 9.1/Android dependency cache and cannot download the complete toolchain. Exact current artifact/patch hashes are recorded in the GitHub Android checkpoint after packaging.
+ 
+ Purpose: Android client for shared Android/Windows inventory sync through a user-selected private GitHub runtime data repository.
+ 
+diff -ruN /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/PROJECT_STATUS.md /mnt/data/boxinv_v030_build/PROJECT_STATUS.md
+--- /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/PROJECT_STATUS.md	2026-09-28 07:59:10.000000000 +0000
++++ /mnt/data/boxinv_v030_build/PROJECT_STATUS.md	2026-09-28 08:06:29.581070938 +0000
+@@ -29,7 +29,7 @@
+ - user-configured private runtime data repository and branch;
+ - secure local GitHub-token storage through Android Keystore-backed AES/GCM;
+ - startup sync check;
+-- active-use periodic sync checks at about five-minute intervals;
++- lifecycle-aware active-use periodic sync checks at about five-minute intervals; checks stop being scheduled when the app leaves the foreground and resume with a fresh check when it becomes active again;
+ - manual **Sync now**;
+ - lightweight no-op revision check when local data and remote revision are unchanged;
+ - platform-neutral snapshot JSON under `inventory-sync/current/snapshot.json`;
+@@ -39,6 +39,7 @@
+ - remote photo SHA-256 validation before apply;
+ - pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
+ - remote media-table/reference validation, strict protocol media paths, duplicate rejection, and bounded 50 MiB media downloads;
++- lifecycle cancellation is not surfaced as a sync error when foreground periodic checking is stopped;
+ - safe first-sync choice when a remote inventory already exists;
+ - explicit conflict state when both local and remote inventory changed;
+ - explicit **Use GitHub** / **Keep this device** conflict resolution;
+diff -ruN /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/V0_30_NOTES.md /mnt/data/boxinv_v030_build/V0_30_NOTES.md
+--- /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/V0_30_NOTES.md	2026-09-28 07:59:10.000000000 +0000
++++ /mnt/data/boxinv_v030_build/V0_30_NOTES.md	2026-09-28 08:06:29.581332842 +0000
+@@ -9,8 +9,9 @@
+ - Settings now includes **Shared inventory sync** for a user-selected **separate private GitHub data repository**.
+ - Configuration accepts `owner/repository`, branch (normally `main`), and a fine-grained GitHub token with Contents read/write access to that private data repository.
+ - The token is encrypted with an Android Keystore AES/GCM key before it is stored locally. The token is not written into shared JSON files.
+-- Startup performs a sync check after the local inventory is ready. While the app remains active, another check runs about every five minutes. **Sync now** is also available.
++- Startup performs a sync check after the local inventory is ready. Foreground/active-use lifecycle handling starts the periodic checker when the app becomes active, runs another check about every five minutes, stops scheduling checks when the app leaves the foreground, and performs a fresh check when active use resumes. **Sync now** is also available.
+ - When both the local logical-data hash and the GitHub branch revision are unchanged, the periodic check ends after the lightweight revision check; it does not download the snapshot or transfer photos again.
++- Lifecycle cancellation from leaving the foreground is treated as a paused automatic check rather than a GitHub sync error. Manual sync remains independently available.
+ - Shared data is published as platform-neutral JSON plus content-addressed media under `inventory-sync/` in the configured repository.
+ - Photos use SHA-256 content IDs so an already-present photo is not uploaded again.
+ - GitHub media reads support both normal inline Contents responses and GitHub's raw response path for larger files.
+diff -ruN /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt
+--- /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 07:57:05.000000000 +0000
++++ /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 08:03:42.201048806 +0000
+@@ -17,6 +17,7 @@
+ import java.security.MessageDigest
+ import java.time.Instant
+ import java.util.UUID
++import kotlinx.coroutines.CancellationException
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.asStateFlow
+@@ -220,6 +221,15 @@
+                 }
+             }
+         }.onFailure { error ->
++            if (error is CancellationException) {
++                _state.value = currentState(
++                    SyncPhase.READY,
++                    "Sync paused while Box Inventory is not active.",
++                    localChanged = _state.value.localChanged,
++                    remoteChanged = _state.value.remoteChanged
++                )
++                throw error
++            }
+             _state.value = currentState(
+                 SyncPhase.ERROR,
+                 safeErrorMessage(error),
+diff -ruN /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt
+--- /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt	2026-09-28 06:21:00.000000000 +0000
++++ /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt	2026-09-28 08:03:25.522918670 +0000
+@@ -80,6 +80,7 @@
+ import androidx.compose.material3.TextButton
+ import androidx.compose.material3.Switch
+ import androidx.compose.runtime.Composable
++import androidx.compose.runtime.DisposableEffect
+ import androidx.compose.runtime.LaunchedEffect
+ import androidx.compose.runtime.collectAsState
+ import androidx.compose.runtime.getValue
+@@ -121,6 +122,9 @@
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.IntOffset
+ import androidx.compose.ui.window.Dialog
++import androidx.lifecycle.Lifecycle
++import androidx.lifecycle.LifecycleEventObserver
++import androidx.lifecycle.compose.LocalLifecycleOwner
+ import androidx.lifecycle.viewmodel.compose.viewModel
+ import coil3.compose.AsyncImage
+ import com.aiboxinventory.app.R
+@@ -370,6 +374,24 @@
+     val context = LocalContext.current
+     val app = context.applicationContext as AIBoxApplication
+     val vm: AppViewModel = viewModel(factory = AppViewModel.Factory(app.container))
++    val lifecycleOwner = LocalLifecycleOwner.current
++    DisposableEffect(lifecycleOwner, vm) {
++        val observer = LifecycleEventObserver { _, event ->
++            when (event) {
++                Lifecycle.Event.ON_START -> vm.setSyncChecksActive(true)
++                Lifecycle.Event.ON_STOP -> vm.setSyncChecksActive(false)
++                else -> Unit
++            }
++        }
++        lifecycleOwner.lifecycle.addObserver(observer)
++        if (lifecycleOwner.lifecycle.currentState.isAtLeast(Lifecycle.State.STARTED)) {
++            vm.setSyncChecksActive(true)
++        }
++        onDispose {
++            lifecycleOwner.lifecycle.removeObserver(observer)
++            vm.setSyncChecksActive(false)
++        }
++    }
+     val appearance by vm.appearance.collectAsState()
+     val systemDark = isSystemInDarkTheme()
+     val darkTheme = when (appearance) {
+diff -ruN /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt
+--- /mnt/data/boxinv_v030_wip3extract/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt	2026-09-28 06:07:06.000000000 +0000
++++ /mnt/data/boxinv_v030_build/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt	2026-09-28 08:03:25.517954908 +0000
+@@ -23,6 +23,7 @@
+ import com.aiboxinventory.app.data.ShoppingItemEntity
+ import com.aiboxinventory.app.sync.SyncResolution
+ import com.google.mlkit.vision.common.InputImage
++import kotlinx.coroutines.CompletableDeferred
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.flow.MutableStateFlow
+ import kotlinx.coroutines.flow.map
+@@ -31,6 +32,7 @@
+ import kotlinx.coroutines.flow.asStateFlow
+ import kotlinx.coroutines.flow.stateIn
+ import kotlinx.coroutines.Job
++import kotlinx.coroutines.isActive
+ import kotlinx.coroutines.delay
+ import kotlinx.coroutines.launch
+ import kotlinx.coroutines.withContext
+@@ -179,6 +181,8 @@
+     val appearance = _appearance.asStateFlow()
+ 
+     val syncState = container.syncService.state
++    private val syncReady = CompletableDeferred<Unit>()
++    private var periodicSyncJob: Job? = null
+ 
+     private var productNextOffset = 0
+     private var reviewPlacementJob: Job? = null
+@@ -187,12 +191,7 @@
+     init {
+         viewModelScope.launch {
+             container.repository.ensureDefaultBoxes()
+-            delay(1_500)
+-            container.syncService.syncNow()
+-            while (true) {
+-                delay(5 * 60_000L)
+-                container.syncService.syncNow()
+-            }
++            syncReady.complete(Unit)
+         }
+         viewModelScope.launch {
+             combine(container.repository.inventory, container.repository.boxes, container.repository.shoppingItems) { _, _, _ -> Unit }
+@@ -204,6 +203,23 @@
+         _message.value = null
+     }
+ 
++    fun setSyncChecksActive(active: Boolean) {
++        if (!active) {
++            periodicSyncJob?.cancel()
++            periodicSyncJob = null
++            return
++        }
++        if (periodicSyncJob?.isActive == true) return
++        periodicSyncJob = viewModelScope.launch {
++            syncReady.await()
++            delay(1_500)
++            while (isActive) {
++                container.syncService.syncNow()
++                delay(5 * 60_000L)
++            }
++        }
++    }
++
+     fun saveSyncConfiguration(repository: String, branch: String, token: String) {
+         runCatching { container.syncService.saveConfiguration(repository, branch, token) }
+             .onSuccess {
