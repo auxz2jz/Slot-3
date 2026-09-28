@@ -71,6 +71,18 @@ WIP3 → WIP4 patch:
 Local WIP4 patch SHA-256:
 `97083519c1235530e3da2aa1bed8e090d6ac8d4f13fc84283d29d48553f89625`
 
+Reviewed WIP5 artifact:
+`BoxInventoryAndroid_v0.30.0_WIP5_SnapshotSizeMonitor_Checkpoint.zip`
+
+Reviewed WIP5 SHA-256:
+`d9426c66a3d5050034d5781d89a689fb076e7e79617deeab976f70148c821838`
+
+WIP4 → WIP5 patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP5_SnapshotSizeMonitor_from_WIP4.patch`
+
+WIP5 code-patch SHA-256:
+`4036150be735832a450e44076375fe61a05f750487d1f6ee0c9ab8e76a607517`
+
 Current v0.30 work adds the Android side of **Inventory Sync Protocol v1** without moving, renaming, reorganizing, or rewriting the established Android application merely for cross-platform cleanliness.
 
 Implemented in the checkpoint:
@@ -87,6 +99,8 @@ Implemented in the checkpoint:
 - pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
 - remote media-table/reference validation, strict protocol media paths, duplicate rejection, and bounded 50 MiB media downloads;
 - automatic periodic checks are foreground/lifecycle-aware; lifecycle cancellation is not reported as a sync error;
+- local snapshot-size monitoring with advisory thresholds at 10 MiB and 20 MiB; warnings do not block sync;
+- repository, branch, and token remain user-configured and are not hard-coded;
 - first-sync protection when remote data already exists;
 - explicit conflict state when both local and remote inventory changed;
 - explicit **Use GitHub** / **Keep this device** resolution;
@@ -99,13 +113,13 @@ Snapshot schema: v1
 Room database: v12  
 Local backup format: v12
 
-This checkpoint is not VERIFIED until the user builds/tests it.
+v0.30 is not yet fully VERIFIED. WIP4 compiled successfully on the user's real Android toolchain, and initial Android → GitHub publish, item/media upload, and no-change lightweight-check behavior were observed successfully. WIP5 adds only the snapshot-size monitor and still requires a user compile/device check. GitHub → Android pull, conflict, and remaining protocol safety tests are still pending.
 
-Static review result: the complete new sync package passes Kotlin type/signature compilation against local Android/data interface stubs. Full Gradle/APK build remains pending because the review environment lacks the Gradle 9.1/Android dependency cache and cannot download it.
+Static review result for WIP5: the new pure Kotlin snapshot-size state compiles, the edited Android files have no Kotlin parser/import-order errors in local syntax scanning, and the source contains no hard-coded runtime repository name or `github_pat_` token literal.
 
 ## Current Android task
 
-Build the reviewed v0.30 WIP4 with a real Android Gradle toolchain, fix only evidence-based build issues if any, and present the resulting Android candidate for testing. Do not modify the Windows implementation.
+Compile/install the reviewed v0.30 WIP5, confirm the sync card shows the snapshot size without changing the saved repository/token workflow, then continue the GitHub → Android pull test. Do not modify the Windows implementation.
 
 ## Ownership boundary
 
