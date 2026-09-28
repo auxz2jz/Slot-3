@@ -1,0 +1,1885 @@
+diff -ruN /mnt/data/inventory_v29_base/PROJECT_MEMORY.md /mnt/data/inventory_v29/PROJECT_MEMORY.md
+--- /mnt/data/inventory_v29_base/PROJECT_MEMORY.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/inventory_v29/PROJECT_MEMORY.md	2026-09-28 06:31:55.936880356 +0000
+@@ -0,0 +1,101 @@
++# Box Inventory Android — Project Memory
++
++Read this before making Android changes.
++
++## Master instructions
++
++Follow the current files in:
++`auxz2jz/master-instruction-library`
++
++Startup order:
++1. `INSTRUCTION_INDEX.md`
++2. `CORE_DEVELOPMENT_RECOVERY_RULES.md`
++3. `DIAGNOSTICS_STANDARD.md`
++4. `GUIDED_TESTING_STANDARD.md`
++5. `CROSS_PLATFORM_COLLABORATION_STANDARD.md`
++6. Shared Inventory Box coordination files
++7. This Android project memory/status and current source
++
++## Product/platform model
++
++Inventory Box is one product with two separate platform implementations:
++
++- Android Inventory Box — owned by Android chat/workflow
++- Windows Inventory Box — owned by PC/Codex agent
++
++Share product intent and interoperability contracts, not platform-specific source code.
++
++Do not reorganize, move, rename, or rewrite the working Android project merely to create a cleaner cross-platform directory layout.
++
++## Android verified baseline
++
++**v0.29.0 / build 33 — VERIFIED by user**
++
++Source artifact:
++`BoxInventoryAndroid_v0.29.0_AndroidStudio.zip`
++
++SHA-256:
++`e581dd5415eed02de970d40ea00b84d6589184db1ead022fb68bffa91c477afe`
++
++Database/backup: v12 / v12.
++
++## Current Android checkpoint
++
++**v0.30.0 / build 34 — IN PROGRESS / NOT VERIFIED**
++
++Purpose: Android client for shared Android/Windows inventory sync through a user-selected private GitHub runtime data repository.
++
++Important source added/changed:
++- `app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt`
++- `app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt`
++- `app/src/main/java/com/aiboxinventory/app/sync/SecureTokenStore.kt`
++- `app/src/main/java/com/aiboxinventory/app/sync/SyncState.kt`
++- `app/src/main/java/com/aiboxinventory/app/AIBoxApplication.kt`
++- `app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt`
++- `app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt`
++- `app/build.gradle.kts`
++- `V0_30_NOTES.md`
++
++## Sync design checkpoint
++
++- Local Room DB remains authoritative for active Android use.
++- SQLite DB file is never synchronized directly.
++- Separate private GitHub runtime-data repository is configured by the user.
++- Protocol v1 uses a complete logical snapshot plus content-addressed media.
++- `inventory-sync/protocol.json`
++- `inventory-sync/current/snapshot.json`
++- `inventory-sync/media/<sha256>.<ext>`
++- Local and remote hashes/revisions are used to avoid unnecessary transfer.
++- Media is uploaded only if missing by SHA-256.
++- Concurrent local+remote change becomes a conflict; no silent overwrite.
++- Protocol v1 uses explicit source choice for conflict resolution rather than field-level merging.
++- GitHub token remains local and encrypted; it is never written to shared data.
++
++## Cross-platform rules
++
++- Shared coordination files must stay platform-neutral.
++- Android status never verifies Windows.
++- Windows status never verifies Android.
++- Android worker must not modify Windows implementation files.
++- If Android discovers a reusable product behavior, record the neutral behavior in shared docs.
++- If Windows later adds a reusable behavior, Android evaluates it from shared docs rather than copying Windows implementation code.
++
++## Testing rule
++
++Every new user-facing feature must have tutorial/testing guidance so the user can verify intended behavior.
++
++For v0.30 specifically test:
++- configure repository/branch/token;
++- first sync when runtime repository is empty;
++- first sync when runtime repository already contains inventory;
++- Android push then second-client pull;
++- second-client change then Android pull;
++- no-change sync performs no inventory/photo transfer;
++- simultaneous local+remote changes show conflict and do not silently overwrite;
++- photos round-trip correctly;
++- unsupported protocol/schema is refused safely;
++- token is not exported/shared.
++
++## Recovery rule
++
++If work becomes confused, recover from the verified v0.29 artifact. The v0.30 tree is only an in-progress checkpoint until the user compiles/tests and explicitly confirms it.
+diff -ruN /mnt/data/inventory_v29_base/PROJECT_STATUS.md /mnt/data/inventory_v29/PROJECT_STATUS.md
+--- /mnt/data/inventory_v29_base/PROJECT_STATUS.md	2026-09-21 23:02:55.000000000 +0000
++++ /mnt/data/inventory_v29/PROJECT_STATUS.md	2026-09-28 06:31:56.352892238 +0000
+@@ -1,31 +1,92 @@
+-# Project status — Box Inventory v0.29.0
++# Project status — Box Inventory Android
+ 
+-Current focus: visual redesign pass 2, shorter Undo timing, and tutorial-driven testing.
++Ownership: **Android chat/workflow**
+ 
+-- App version: 0.29.0 (versionCode 33)
+-- Database: v12
+-- Backup format: v12
+-- Bottom navigation: Home / Add / Find / Shop / Settings
+-- Home overview: interactive At a glance statistics plus recent add/move/archive activity
+-- Box browse view: compact thumbnail + name + description rows
+-- Box audit: physical checklist for expected In-box records, explicit Missing confirmation, Add unrecorded, and Move existing here corrections
+-- Swipe actions: drag left = Archive; drag right = Edit; action executes only after release once the row says Release to Archive/Edit; drag back toward center to cancel
+-- Box reports: Share / Print creates multi-page PDFs of active box contents; each item includes one primary thumbnail photo when available, plus quantity/details/identifiers
+-- Purchase/warranty: optional price, store/seller, purchase date, warranty expiration, and warranty note are stored in Item Details and backups
+-- Search: normal/voice search plus structured filters; store and warranty-note text are searchable
+-- Archive: removes an item from active/current boxes while preserving a recoverable record
+-- Item Details: photos, quantity, favorite, status, category, box moves, serial/model identifiers, purchase/warranty information, notes/product data, move history, and Archive/Restore actions
+-- Tutorial system: five-step first-run Getting Started plus independently launchable tutorials for every current user-facing feature; new features must ship with a testing tutorial
+-- Widgets: Quick Actions, Inventory Search, Shopping List, Box Status
+-- Item photos: one main photo plus up to 10 additional angles
+-- Item status: In box / Loaned out / Missing
+-- Visual direction: softer consumer-style surfaces, warmer background, compact browse screens, and advanced controls grouped inside Item Details
++## ANDROID LAST VERIFIED BASELINE
+ 
+-## v0.29.0 status
+-DONE: visual redesign pass 2 across Add, Settings, Item Details and box management; softer theme/background/card treatment; QR hidden from collapsed box rows; grouped detail sections; Undo snackbars explicitly limited to about 10 seconds. Database/backup remain v12.
++**v0.29.0 / build 33 — VERIFIED by user**
+ 
+-## v0.28.0 status
+-DONE: Box Audit checklist, explicit not-found review, confirm-before-Missing behavior, add-unrecorded routing back to the audited box, move-existing audit corrections, and a dedicated testing tutorial. Database/backup remain v12.
++User-reported result: the v0.29 visual redesign and shortened Undo timing work correctly. The user then approved moving to the final cross-platform synchronization feature.
+ 
+-## v0.27.0 status
+-DONE: optional Location → Shelf/area → Box hierarchy, location search/filters, full storage paths in Find/Item Details/PDFs, Android Back navigation fixes, system-navigation padding, and tutorials for both new behaviors.
++Verified source artifact:
++`BoxInventoryAndroid_v0.29.0_AndroidStudio.zip`
++
++Verified artifact SHA-256:
++`e581dd5415eed02de970d40ea00b84d6589184db1ead022fb68bffa91c477afe`
++
++Database: v12  
++Backup format: v12
++
++## Latest Android work-in-progress checkpoint
++
++**v0.30.0 / build 34 — IN PROGRESS / NOT USER-VERIFIED**
++
++Current task: add the Android side of shared Android/Windows inventory synchronization without reorganizing or rewriting the established Android application.
++
++Implemented in the current checkpoint:
++
++- local-first GitHub synchronization service;
++- user-configured private runtime data repository and branch;
++- secure local GitHub-token storage through Android Keystore-backed AES/GCM;
++- startup sync check;
++- active-use periodic sync checks at about five-minute intervals;
++- manual **Sync now**;
++- lightweight no-op revision check when local data and remote revision are unchanged;
++- platform-neutral snapshot JSON under `inventory-sync/current/snapshot.json`;
++- `inventory-sync/protocol.json` with protocol/schema versioning;
++- SHA-256 content-addressed media under `inventory-sync/media/`;
++- media deduplication;
++- remote photo SHA-256 validation before apply;
++- safe first-sync choice when a remote inventory already exists;
++- explicit conflict state when both local and remote inventory changed;
++- explicit **Use GitHub** / **Keep this device** conflict resolution;
++- shared sync status/settings UI;
++- shared-inventory tutorial/testing guidance.
++
++Protocol: Inventory Sync Protocol v1 / snapshot schema v1.
++
++Room database remains v12.  
++Local `.boxbackup` format remains v12.
++
++This checkpoint has not been user-tested and must not replace the verified v0.29 baseline.
++
++## Cross-platform ownership boundary
++
++Inventory Box is now **one product with two separate platform implementations**.
++
++- Android implementation owner: Android chat/workflow.
++- Windows implementation owner: PC/Codex agent.
++- Shared product behavior/data contracts: shared coordination documentation.
++- Windows source/build/project memory/checkpoints must not be modified by the Android worker unless the user explicitly authorizes it.
++- Android source/build/project memory/checkpoints must not be modified by the Windows worker.
++- Android and Windows maintain separate verified baselines.
++
++The established Android project remains in its current working structure. No Android source was moved or renamed merely to create a cleaner cross-platform layout.
++
++## Current application capabilities carried forward
++
++- Home / Add / Find / Shop / Settings bottom navigation.
++- Interactive Home statistics and recent activity.
++- Single and multiple item capture.
++- UPC/product lookup and manual descriptions.
++- Boxes with stable QR identity and capacity state.
++- Optional Location → Shelf/area → Box hierarchy.
++- Compact box browsing and Item Details.
++- Quantity, duplicate handling, custom categories, category aliases/learning.
++- Favorites; In box / Loaned out / Missing status.
++- Archive / Restore / permanent delete from archive.
++- Serial/model identifiers.
++- Purchase and warranty information.
++- Main + additional item photos.
++- Move history and reorganization workflows.
++- Inventory-aware Shopping List.
++- Quick Actions, Inventory Search, Shopping List, and Box Status widgets.
++- Voice search and structured Find filters.
++- Share/Print box-content PDFs with item thumbnails.
++- Box Audit mode.
++- Android Back handling and system-navigation padding.
++- Tutorials/testing guidance for current user-facing features.
++
++## Exact next action
++
++Resume from this checkpoint, review the v0.30 sync implementation against the shared cross-platform protocol, run/build the Android candidate, and present it for user testing. Do not modify the Windows implementation.
+diff -ruN /mnt/data/inventory_v29_base/README.md /mnt/data/inventory_v29/README.md
+--- /mnt/data/inventory_v29_base/README.md	2026-09-21 23:02:55.000000000 +0000
++++ /mnt/data/inventory_v29/README.md	2026-09-28 06:31:56.176887211 +0000
+@@ -1,4 +1,15 @@
+-# Box Inventory v0.29.0
++# Box Inventory v0.30.0 — WIP checkpoint
++
++
++## Current checkpoint status
++
++- **ANDROID LAST VERIFIED BASELINE:** v0.29.0 / build 33.
++- **Current Android work in progress:** v0.30.0 / build 34.
++- v0.30 adds the Android side of cross-platform GitHub inventory synchronization and is **not user-verified yet**.
++- Inventory Box is now one product with separate Android and Windows implementations. Android work remains Android-owned; Windows implementation is owned by the PC/Codex agent.
++- The established Android project structure is preserved.
++
++See `PROJECT_MEMORY.md`, `PROJECT_STATUS.md`, and `V0_30_NOTES.md` before continuing.
+ 
+ ## v0.29.0 highlights
+ 
+diff -ruN /mnt/data/inventory_v29_base/V0_30_NOTES.md /mnt/data/inventory_v29/V0_30_NOTES.md
+--- /mnt/data/inventory_v29_base/V0_30_NOTES.md	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/inventory_v29/V0_30_NOTES.md	2026-09-28 06:19:33.799910743 +0000
+@@ -0,0 +1,66 @@
++# Box Inventory v0.30.0
++
++Build 34
++
++## Shared Android/Windows inventory sync
++
++- Added the Android side of **Inventory Sync Protocol v1** for the cross-platform Inventory Box product.
++- Android remains a complete local-first application. It continues using its existing Room database and local photo storage; the SQLite database file itself is never uploaded or shared.
++- Settings now includes **Shared inventory sync** for a user-selected **separate private GitHub data repository**.
++- Configuration accepts `owner/repository`, branch (normally `main`), and a fine-grained GitHub token with Contents read/write access to that private data repository.
++- The token is encrypted with an Android Keystore AES/GCM key before it is stored locally. The token is not written into shared JSON files.
++- Startup performs a sync check after the local inventory is ready. While the app remains active, another check runs about every five minutes. **Sync now** is also available.
++- When both the local logical-data hash and the GitHub branch revision are unchanged, the periodic check ends after the lightweight revision check; it does not download the snapshot or transfer photos again.
++- Shared data is published as platform-neutral JSON plus content-addressed media under `inventory-sync/` in the configured repository.
++- Photos use SHA-256 content IDs so an already-present photo is not uploaded again.
++- GitHub media reads support both normal inline Contents responses and GitHub's raw response path for larger files.
++- Each shared media file is limited to 50 MiB in this protocol implementation, safely below GitHub's single-file hard limit.
++- Uploads publish required media first and `current/snapshot.json` last.
++- A snapshot is rechecked immediately before publish. If another client changed it while Android was uploading media, Android stops instead of overwriting the newer inventory.
++- Remote photos are downloaded and SHA-256 verified before the Room database is replaced. They are stored in separate imported files so a failed pull cannot overwrite the photo paths still used by the current local database.
++
++## First sync and conflict protection
++
++- If the configured GitHub repository has no Inventory Box snapshot, Android can publish the current local inventory as the initial shared snapshot.
++- If a snapshot already exists and Android has never synchronized with it, the app requires an explicit **Use GitHub** or **Keep this device** choice.
++- After a successful sync, Android records the synchronized logical-data hash and GitHub commit revision.
++- If Android and GitHub both change before the next successful sync, the app enters **Sync conflict** and performs no silent overwrite.
++- **Use GitHub** deliberately replaces the shared records on Android with the remote snapshot after confirmation.
++- **Keep this device** deliberately publishes the complete Android logical inventory after confirmation.
++- Protocol v1 intentionally favors data safety over automatic field-level merging. More granular merge rules can be added later only as a shared cross-platform protocol revision.
++
++## Shared data included
++
++The Android snapshot includes platform-neutral representations of:
++
++- boxes, QR identities, capacity, Location and Shelf/area;
++- item names, descriptions, quantities, categories, notes and box assignments;
++- favorites and In box / Loaned out / Missing state;
++- archive state;
++- serial/model identifiers;
++- purchase and warranty fields;
++- product/barcode/reference metadata;
++- primary/original/reference photos and additional-angle photos;
++- learned routes, custom categories and category aliases;
++- move history;
++- shopping-list records.
++
++Android-only preferences such as appearance, tutorial completion, navigation state, and the GitHub token stay local.
++
++## Cross-platform ownership
++
++- The existing Android application was **not** moved, renamed, reorganized or rewritten to create a new cross-platform source layout.
++- Shared product contracts/ownership documentation are maintained in the project coordination repository under `shared/`.
++- The future Windows implementation is owned by the PC/Codex agent and has its own status/baseline area.
++- Android v0.30.0 implements only the Android client side. It does not claim that the Windows implementation exists or is verified.
++
++## Tutorial/testing
++
++- Added **Shared Android/Windows inventory** to Settings → Tutorial & Help.
++- The tutorial covers creating a separate private data repository, token permissions, initial sync, first-sync/conflict choices, cross-platform verification, and the no-change/no-transfer check.
++
++## Compatibility
++
++- Room database remains **v12**.
++- Local `.boxbackup` format remains **v12**.
++- Existing v0.29 local data does not require a Room migration.
+diff -ruN /mnt/data/inventory_v29_base/app/build.gradle.kts /mnt/data/inventory_v29/app/build.gradle.kts
+--- /mnt/data/inventory_v29_base/app/build.gradle.kts	2026-09-21 23:00:04.000000000 +0000
++++ /mnt/data/inventory_v29/app/build.gradle.kts	2026-09-28 06:12:42.785153215 +0000
+@@ -15,8 +15,8 @@
+         applicationId = "com.aiboxinventory.app"
+         minSdk = 26
+         targetSdk = 36
+-        versionCode = 33
+-        versionName = "0.29.0"
++        versionCode = 34
++        versionName = "0.30.0"
+     }
+ 
+     buildFeatures {
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/AIBoxApplication.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/AIBoxApplication.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/AIBoxApplication.kt	2026-09-15 23:13:16.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/AIBoxApplication.kt	2026-09-28 06:17:50.450023362 +0000
+@@ -9,6 +9,7 @@
+ import com.aiboxinventory.app.media.ImageAnnotationService
+ import com.aiboxinventory.app.media.PhotoStore
+ import com.aiboxinventory.app.qr.QrScanner
++import com.aiboxinventory.app.sync.InventorySyncService
+ 
+ class AIBoxApplication : Application() {
+     lateinit var container: AppContainer
+@@ -28,5 +29,6 @@
+     val productLookup = ProductLookupService()
+     val recognitionEngine = MlKitRecognitionEngine(app, productLookup)
+     val backupService = BackupService(app, repository, photoStore)
++    val syncService = InventorySyncService(app, repository)
+     val qrScanner = QrScanner()
+ }
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/GitHubSyncClient.kt	2026-09-28 06:12:42.211548700 +0000
+@@ -0,0 +1,148 @@
++package com.aiboxinventory.app.sync
++
++import android.util.Base64
++import org.json.JSONObject
++import java.io.BufferedReader
++import java.io.ByteArrayOutputStream
++import java.io.InputStreamReader
++import java.net.HttpURLConnection
++import java.net.URL
++import java.net.URLEncoder
++
++class GitHubApiException(val statusCode: Int, message: String) : Exception(message)
++
++data class RemoteFile(
++    val bytes: ByteArray,
++    val blobSha: String
++)
++
++class GitHubSyncClient(
++    private val config: SyncConfig,
++    private val token: String
++) {
++    fun headCommitSha(): String? {
++        val branch = encode(config.branch)
++        val response = request("GET", "/repos/${config.repositoryFullName}/commits/$branch")
++        if (response.code == 409) return null
++        checkSuccess(response)
++        return JSONObject(response.body).optString("sha").takeIf { it.isNotBlank() }
++    }
++
++    fun getFile(path: String): RemoteFile? {
++        val response = request(
++            "GET",
++            "/repos/${config.repositoryFullName}/contents/${encodePath(path)}?ref=${encode(config.branch)}"
++        )
++        if (response.code == 404) return null
++        checkSuccess(response)
++        val json = JSONObject(response.body)
++        val encoding = json.optString("encoding")
++        val bytes = if (encoding.equals("base64", ignoreCase = true)) {
++            val content = json.optString("content").replace("\n", "")
++            Base64.decode(content, Base64.DEFAULT)
++        } else {
++            // GitHub omits inline base64 content for larger files. Request the same
++            // Contents endpoint using the raw media type instead of treating that
++            // normal response as an unsupported sync file.
++            requestRaw(
++                "/repos/${config.repositoryFullName}/contents/${encodePath(path)}?ref=${encode(config.branch)}"
++            )
++        }
++        return RemoteFile(
++            bytes = bytes,
++            blobSha = json.getString("sha")
++        )
++    }
++
++    fun putFile(path: String, bytes: ByteArray, message: String, existingBlobSha: String? = null) {
++        val body = JSONObject()
++            .put("message", message)
++            .put("content", Base64.encodeToString(bytes, Base64.NO_WRAP))
++            .put("branch", config.branch)
++        existingBlobSha?.takeIf { it.isNotBlank() }?.let { body.put("sha", it) }
++        val response = request(
++            "PUT",
++            "/repos/${config.repositoryFullName}/contents/${encodePath(path)}",
++            body.toString()
++        )
++        checkSuccess(response)
++    }
++
++    private fun requestRaw(path: String): ByteArray {
++        val connection = (URL("https://api.github.com$path").openConnection() as HttpURLConnection).apply {
++            requestMethod = "GET"
++            connectTimeout = 15_000
++            readTimeout = 60_000
++            setRequestProperty("Accept", "application/vnd.github.raw+json")
++            setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
++            setRequestProperty("User-Agent", "BoxInventory-Android")
++            setRequestProperty("Authorization", "Bearer $token")
++        }
++        return try {
++            val code = connection.responseCode
++            if (code !in 200..299) {
++                val text = connection.errorStream?.use { input ->
++                    BufferedReader(InputStreamReader(input, Charsets.UTF_8)).readText()
++                }.orEmpty()
++                checkSuccess(HttpResponse(code, text))
++            }
++            connection.inputStream.use { input ->
++                val output = ByteArrayOutputStream()
++                val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
++                while (true) {
++                    val read = input.read(buffer)
++                    if (read <= 0) break
++                    output.write(buffer, 0, read)
++                }
++                output.toByteArray()
++            }
++        } finally {
++            connection.disconnect()
++        }
++    }
++
++    private data class HttpResponse(val code: Int, val body: String)
++
++    private fun request(method: String, path: String, body: String? = null): HttpResponse {
++        val connection = (URL("https://api.github.com$path").openConnection() as HttpURLConnection).apply {
++            requestMethod = method
++            connectTimeout = 15_000
++            readTimeout = 45_000
++            setRequestProperty("Accept", "application/vnd.github+json")
++            setRequestProperty("X-GitHub-Api-Version", "2022-11-28")
++            setRequestProperty("User-Agent", "BoxInventory-Android")
++            setRequestProperty("Authorization", "Bearer $token")
++            if (body != null) {
++                doOutput = true
++                setRequestProperty("Content-Type", "application/json; charset=utf-8")
++            }
++        }
++        return try {
++            if (body != null) {
++                connection.outputStream.use { it.write(body.toByteArray(Charsets.UTF_8)) }
++            }
++            val code = connection.responseCode
++            val stream = if (code in 200..299) connection.inputStream else connection.errorStream
++            val text = stream?.use { input ->
++                BufferedReader(InputStreamReader(input, Charsets.UTF_8)).readText()
++            }.orEmpty()
++            HttpResponse(code, text)
++        } finally {
++            connection.disconnect()
++        }
++    }
++
++    private fun checkSuccess(response: HttpResponse) {
++        if (response.code in 200..299) return
++        val message = runCatching { JSONObject(response.body).optString("message") }.getOrNull()
++            ?.takeIf { it.isNotBlank() }
++            ?: "GitHub request failed."
++        throw GitHubApiException(response.code, "GitHub ${response.code}: $message")
++    }
++
++    private fun encode(value: String): String =
++        URLEncoder.encode(value, Charsets.UTF_8.name()).replace("+", "%20")
++
++    private fun encodePath(path: String): String =
++        path.split('/').joinToString("/") { encode(it) }
++}
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/InventorySyncService.kt	2026-09-28 06:21:40.076142538 +0000
+@@ -0,0 +1,954 @@
++package com.aiboxinventory.app.sync
++
++import android.content.Context
++import com.aiboxinventory.app.data.AppRepository
++import com.aiboxinventory.app.data.BoxCapacity
++import com.aiboxinventory.app.data.BoxEntity
++import com.aiboxinventory.app.data.BoxRouting
++import com.aiboxinventory.app.data.CategoryAliasEntity
++import com.aiboxinventory.app.data.CustomCategoryEntity
++import com.aiboxinventory.app.data.InventoryItemEntity
++import com.aiboxinventory.app.data.InventoryStatus
++import com.aiboxinventory.app.data.ItemPhotoEntity
++import com.aiboxinventory.app.data.LearnedRouteEntity
++import com.aiboxinventory.app.data.MoveHistoryEntity
++import com.aiboxinventory.app.data.ShoppingItemEntity
++import java.io.File
++import java.security.MessageDigest
++import java.time.Instant
++import java.util.UUID
++import kotlinx.coroutines.Dispatchers
++import kotlinx.coroutines.flow.MutableStateFlow
++import kotlinx.coroutines.flow.asStateFlow
++import kotlinx.coroutines.sync.Mutex
++import kotlinx.coroutines.sync.withLock
++import kotlinx.coroutines.withContext
++import org.json.JSONArray
++import org.json.JSONObject
++
++class InventorySyncService(
++    private val context: Context,
++    private val repository: AppRepository
++) {
++    private val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
++    private val tokenStore = SecureTokenStore(context)
++    private val mutex = Mutex()
++
++    private val _state = MutableStateFlow(loadInitialState())
++    val state = _state.asStateFlow()
++
++    data class PreparedMedia(
++        val sha256: String,
++        val file: File,
++        val relativePath: String,
++        val sizeBytes: Long,
++        val mimeType: String
++    )
++
++    data class LocalSnapshot(
++        val root: JSONObject,
++        val bytes: ByteArray,
++        val dataHash: String,
++        val media: List<PreparedMedia>
++    )
++
++    data class RemoteSnapshot(
++        val root: JSONObject,
++        val blobSha: String,
++        val dataHash: String,
++        val mediaPaths: Map<String, String>
++    )
++
++    fun repositoryFullName(): String = prefs.getString(KEY_REPOSITORY, "").orEmpty()
++    fun branch(): String = prefs.getString(KEY_BRANCH, DEFAULT_BRANCH).orEmpty().ifBlank { DEFAULT_BRANCH }
++    fun hasToken(): Boolean = tokenStore.hasToken()
++
++    fun saveConfiguration(repositoryFullName: String, branch: String, token: String = "") {
++        val repo = repositoryFullName.trim()
++        val cleanBranch = branch.trim().ifBlank { DEFAULT_BRANCH }
++        require(REPOSITORY_REGEX.matches(repo)) { "Enter the GitHub repository as owner/repository." }
++        val oldRepo = this.repositoryFullName()
++        val oldBranch = this.branch()
++        val changedTarget = oldRepo != repo || oldBranch != cleanBranch
++        prefs.edit()
++            .putString(KEY_REPOSITORY, repo)
++            .putString(KEY_BRANCH, cleanBranch)
++            .apply()
++        if (token.isNotBlank()) tokenStore.save(token)
++        if (changedTarget) clearAnchors()
++        _state.value = SyncUiState(
++            phase = SyncPhase.READY,
++            repositoryFullName = repo,
++            branch = cleanBranch,
++            hasToken = tokenStore.hasToken(),
++            lastSuccessAt = prefs.getLong(KEY_LAST_SUCCESS, 0L),
++            lastRemoteCommit = prefs.getString(KEY_LAST_COMMIT, "").orEmpty(),
++            message = if (tokenStore.hasToken()) "Sync settings saved." else "Repository saved. Add a GitHub token before syncing."
++        )
++    }
++
++    fun clearToken() {
++        tokenStore.clear()
++        _state.value = _state.value.copy(
++            phase = if (repositoryFullName().isBlank()) SyncPhase.UNCONFIGURED else SyncPhase.READY,
++            hasToken = false,
++            message = "Saved GitHub token cleared."
++        )
++    }
++
++    fun clearConfiguration() {
++        prefs.edit()
++            .remove(KEY_REPOSITORY)
++            .remove(KEY_BRANCH)
++            .apply()
++        tokenStore.clear()
++        clearAnchors()
++        _state.value = SyncUiState()
++    }
++
++    suspend fun syncNow(resolution: SyncResolution? = null) = mutex.withLock {
++        val config = currentConfig()
++        val token = tokenStore.load()
++        if (config == null || token.isNullOrBlank()) {
++            _state.value = SyncUiState(
++                phase = SyncPhase.UNCONFIGURED,
++                repositoryFullName = repositoryFullName(),
++                branch = branch(),
++                hasToken = !token.isNullOrBlank(),
++                lastSuccessAt = prefs.getLong(KEY_LAST_SUCCESS, 0L),
++                lastRemoteCommit = prefs.getString(KEY_LAST_COMMIT, "").orEmpty(),
++                message = "Configure a private GitHub repository and token before syncing."
++            )
++            return@withLock
++        }
++
++        _state.value = _state.value.copy(
++            phase = SyncPhase.SYNCING,
++            repositoryFullName = config.repositoryFullName,
++            branch = config.branch,
++            hasToken = true,
++            message = "Checking GitHub for inventory changes…"
++        )
++
++        runCatching {
++            withContext(Dispatchers.IO) {
++                val client = GitHubSyncClient(config, token)
++                val local = buildLocalSnapshot()
++                val remoteHead = client.headCommitSha()
++                val lastHash = prefs.getString(KEY_LAST_HASH, "").orEmpty()
++                val lastCommit = prefs.getString(KEY_LAST_COMMIT, "").orEmpty()
++
++                // Fast no-op path: if our logical data hash and the remote branch head
++                // are both exactly what we recorded at the last successful sync, do
++                // not download snapshot.json or any media again.
++                if (lastHash.isNotBlank() && local.dataHash == lastHash && remoteHead == lastCommit) {
++                    _state.value = currentState(
++                        SyncPhase.SYNCED,
++                        "Already up to date — only the lightweight GitHub revision check was needed.",
++                        localChanged = false,
++                        remoteChanged = false,
++                        commit = lastCommit
++                    )
++                    return@withContext
++                }
++
++                val remote = loadRemoteSnapshot(client)
++
++                if (lastHash.isBlank()) {
++                    when {
++                        remote == null -> pushLocal(client, local, null)
++                        resolution == SyncResolution.USE_REMOTE -> pullRemote(client, remote, remoteHead)
++                        resolution == SyncResolution.KEEP_LOCAL -> pushLocal(client, local, remote)
++                        else -> {
++                            _state.value = currentState(
++                                SyncPhase.FIRST_SYNC_REQUIRED,
++                                "This GitHub repository already has an Inventory Box snapshot. Choose which inventory should be used for the first sync.",
++                                localChanged = true,
++                                remoteChanged = true,
++                                remoteSnapshotAvailable = true
++                            )
++                        }
++                    }
++                    return@withContext
++                }
++
++                if (remote == null) {
++                    if (resolution == SyncResolution.KEEP_LOCAL) {
++                        pushLocal(client, local, null)
++                    } else {
++                        _state.value = currentState(
++                            SyncPhase.CONFLICT,
++                            "The remote Inventory Box snapshot is missing. Nothing was overwritten. Choose Keep this device to recreate it, or fix the GitHub repository first.",
++                            localChanged = local.dataHash != lastHash,
++                            remoteChanged = true,
++                            remoteSnapshotAvailable = false
++                        )
++                    }
++                    return@withContext
++                }
++
++                val localChanged = local.dataHash != lastHash
++                val remoteChanged = remote.dataHash != lastHash
++
++                when {
++                    localChanged && remoteChanged && resolution == null -> {
++                        _state.value = currentState(
++                            SyncPhase.CONFLICT,
++                            "Both this device and GitHub changed since the last successful sync. Nothing was overwritten.",
++                            localChanged = true,
++                            remoteChanged = true,
++                            remoteSnapshotAvailable = true
++                        )
++                    }
++                    localChanged && remoteChanged && resolution == SyncResolution.USE_REMOTE ->
++                        pullRemote(client, remote, remoteHead)
++                    localChanged && remoteChanged && resolution == SyncResolution.KEEP_LOCAL ->
++                        pushLocal(client, local, remote)
++                    remoteChanged -> pullRemote(client, remote, remoteHead)
++                    localChanged -> pushLocal(client, local, remote)
++                    else -> {
++                        val resolvedCommit = remoteHead ?: lastCommit
++                        prefs.edit().putString(KEY_LAST_COMMIT, resolvedCommit).apply()
++                        _state.value = currentState(
++                            SyncPhase.SYNCED,
++                            "Already up to date — no inventory or photo transfer was needed.",
++                            localChanged = false,
++                            remoteChanged = false,
++                            commit = resolvedCommit
++                        )
++                    }
++                }
++            }
++        }.onFailure { error ->
++            _state.value = currentState(
++                SyncPhase.ERROR,
++                safeErrorMessage(error),
++                localChanged = _state.value.localChanged,
++                remoteChanged = _state.value.remoteChanged
++            )
++        }
++    }
++
++    private suspend fun pushLocal(
++        client: GitHubSyncClient,
++        local: LocalSnapshot,
++        remote: RemoteSnapshot?
++    ) {
++        ensureProtocol(client)
++        val remoteMedia = remote?.mediaPaths?.keys.orEmpty()
++        local.media.forEachIndexed { index, media ->
++            if (media.sha256 in remoteMedia) return@forEachIndexed
++            val existing = client.getFile(media.relativePath)
++            if (existing == null) {
++                client.putFile(
++                    media.relativePath,
++                    media.file.readBytes(),
++                    "inventory-sync: add media ${media.sha256.take(12)}"
++                )
++            } else {
++                val existingHash = sha256Hex(existing.bytes)
++                require(existingHash == media.sha256) {
++                    "Remote media path ${media.relativePath} does not match its SHA-256 name."
++                }
++            }
++            _state.value = _state.value.copy(
++                message = "Uploading inventory photos… ${index + 1}/${local.media.size}"
++            )
++        }
++
++        // Re-check the snapshot object immediately before publishing. Media uploads
++        // create their own commits, but they do not change snapshot.json. If another
++        // client changed or created the snapshot while we were uploading media, stop
++        // instead of silently replacing that client's inventory.
++        val currentSnapshot = client.getFile(SNAPSHOT_PATH)
++        when {
++            remote == null && currentSnapshot != null ->
++                throw GitHubApiException(409, "The GitHub inventory changed during sync. Run Sync now again.")
++            remote != null && currentSnapshot?.blobSha != remote.blobSha ->
++                throw GitHubApiException(409, "The GitHub inventory changed during sync. Run Sync now again.")
++        }
++        client.putFile(
++            SNAPSHOT_PATH,
++            local.bytes,
++            "inventory-sync: publish snapshot ${local.root.optString("snapshotId").take(8)}",
++            remote?.blobSha
++        )
++
++        val verified = loadRemoteSnapshot(client)
++            ?: error("GitHub did not return the snapshot after upload.")
++        require(verified.dataHash == local.dataHash) {
++            "The GitHub snapshot changed during upload. Run sync again before making more changes."
++        }
++        val finalHead = client.headCommitSha().orEmpty()
++        recordSuccess(local.dataHash, finalHead)
++        _state.value = currentState(
++            SyncPhase.SYNCED,
++            "Synced this device to GitHub.",
++            localChanged = false,
++            remoteChanged = false,
++            commit = finalHead
++        )
++    }
++
++    private suspend fun pullRemote(
++        client: GitHubSyncClient,
++        remote: RemoteSnapshot,
++        remoteHead: String?
++    ) {
++        _state.value = _state.value.copy(message = "Downloading the shared inventory…")
++        applyRemoteSnapshot(client, remote)
++        val rebuilt = buildLocalSnapshot()
++        require(rebuilt.dataHash == remote.dataHash) {
++            "The downloaded snapshot could not be reproduced locally. No automatic upload will be attempted."
++        }
++        val anchoredHead = remoteHead ?: client.headCommitSha().orEmpty()
++        recordSuccess(remote.dataHash, anchoredHead)
++        val newestHead = client.headCommitSha().orEmpty()
++        val message = if (newestHead.isNotBlank() && newestHead != anchoredHead) {
++            "Downloaded the GitHub inventory. Another remote change arrived during sync; Sync now will pick it up."
++        } else {
++            "Downloaded the latest GitHub inventory."
++        }
++        _state.value = currentState(
++            SyncPhase.SYNCED,
++            message,
++            localChanged = false,
++            remoteChanged = newestHead.isNotBlank() && newestHead != anchoredHead,
++            commit = anchoredHead
++        )
++    }
++
++    private fun ensureProtocol(client: GitHubSyncClient) {
++        val existing = client.getFile(PROTOCOL_PATH)
++        if (existing == null) {
++            val protocol = JSONObject()
++                .put("product", PRODUCT)
++                .put("protocolVersion", PROTOCOL_VERSION)
++                .put("snapshotSchemaVersion", SNAPSHOT_SCHEMA_VERSION)
++                .toString(2)
++                .toByteArray(Charsets.UTF_8)
++            client.putFile(PROTOCOL_PATH, protocol, "inventory-sync: initialize protocol v$PROTOCOL_VERSION")
++        } else {
++            validateProtocol(JSONObject(String(existing.bytes, Charsets.UTF_8)))
++        }
++    }
++
++    private fun loadRemoteSnapshot(client: GitHubSyncClient): RemoteSnapshot? {
++        val protocolFile = client.getFile(PROTOCOL_PATH)
++        val snapshotFile = client.getFile(SNAPSHOT_PATH)
++        if (snapshotFile == null) {
++            protocolFile?.let { validateProtocol(JSONObject(String(it.bytes, Charsets.UTF_8))) }
++            return null
++        }
++        require(protocolFile != null) { "GitHub has an Inventory Box snapshot but protocol.json is missing." }
++        validateProtocol(JSONObject(String(protocolFile.bytes, Charsets.UTF_8)))
++
++        val root = JSONObject(String(snapshotFile.bytes, Charsets.UTF_8))
++        validateSnapshotEnvelope(root)
++        val logical = logicalObject(root)
++        val calculated = sha256Hex(canonicalJson(logical).toByteArray(Charsets.UTF_8))
++        val declared = root.getString("dataHash")
++        require(calculated == declared) { "GitHub snapshot dataHash validation failed." }
++
++        val mediaPaths = mutableMapOf<String, String>()
++        val media = root.optJSONArray("media") ?: JSONArray()
++        for (i in 0 until media.length()) {
++            val m = media.getJSONObject(i)
++            val sha = m.optString("sha256")
++            val path = m.optString("relativePath")
++            if (sha.matches(SHA_REGEX) && path.isNotBlank()) mediaPaths[sha] = path
++        }
++        return RemoteSnapshot(root, snapshotFile.blobSha, declared, mediaPaths)
++    }
++
++    private suspend fun buildLocalSnapshot(): LocalSnapshot {
++        val boxes = repository.allBoxes().sortedBy { it.id }
++        val items = repository.allItems().sortedBy { it.id }
++        val itemPhotos = repository.allItemPhotos().sortedBy { it.id }
++        val routes = repository.allLearnedRoutes().sortedBy { it.normalizedName }
++        val custom = repository.allCustomCategories().sortedBy { it.id }
++        val aliases = repository.allCategoryAliases().sortedBy { it.id }
++        val moves = repository.allMoveHistory().sortedBy { it.id }
++        val shopping = repository.allShoppingItems().sortedBy { it.id }
++
++        val mediaBySha = linkedMapOf<String, PreparedMedia>()
++        fun mediaSha(path: String): String {
++            if (path.isBlank()) return ""
++            val file = File(path)
++            if (!file.exists() || file.length() <= 0L) return ""
++            require(file.length() <= MAX_SYNC_MEDIA_BYTES) {
++                "A photo is too large for GitHub sync (${file.length() / 1024 / 1024} MB). Create a smaller copy before syncing."
++            }
++            val sha = cachedFileSha(file)
++            val (mimeType, extension) = detectImageType(file)
++            mediaBySha.putIfAbsent(
++                sha,
++                PreparedMedia(
++                    sha256 = sha,
++                    file = file,
++                    relativePath = "$MEDIA_DIR/$sha.$extension",
++                    sizeBytes = file.length(),
++                    mimeType = mimeType
++                )
++            )
++            return sha
++        }
++
++        val boxesJson = JSONArray()
++        boxes.forEach { box ->
++            val routing = BoxRouting.parse(box.description)
++            boxesJson.put(JSONObject()
++                .put("id", box.id)
++                .put("number", box.number)
++                .put("name", box.name)
++                .put("userDescription", routing.userDescription)
++                .put("routingMode", if (routing.manualCategory == null) "AUTO" else "MANUAL_CATEGORY")
++                .put("manualCategory", routing.manualCategory ?: "")
++                .put("qrValue", box.qrValue)
++                .put("capacityStatus", BoxCapacity.normalized(box))
++                .put("locationName", box.locationName)
++                .put("areaName", box.areaName))
++        }
++
++        val itemsJson = JSONArray()
++        items.forEach { item ->
++            val refs = JSONObject()
++                .put("primary", mediaSha(item.labeledPhotoPath))
++                .put("original", mediaSha(item.originalPhotoPath))
++                .put("reference", mediaSha(item.referencePhotoPath))
++            itemsJson.put(JSONObject()
++                .put("id", item.id)
++                .put("name", item.name)
++                .put("normalizedName", item.normalizedName)
++                .put("category", item.category)
++                .put("boxId", item.boxId)
++                .put("note", item.note)
++                .put("description", item.description)
++                .put("quantity", item.quantity)
++                .put("createdAt", item.createdAt)
++                .put("aiPrimaryLabel", item.aiPrimaryLabel)
++                .put("aiConfidence", "%.6f".format(java.util.Locale.US, item.aiConfidence))
++                .put("aiCandidates", item.aiCandidates)
++                .put("recognitionSource", item.recognitionSource)
++                .putNullable("cropLeft", item.cropLeft)
++                .putNullable("cropTop", item.cropTop)
++                .putNullable("cropRight", item.cropRight)
++                .putNullable("cropBottom", item.cropBottom)
++                .put("productBarcode", item.productBarcode)
++                .put("productBrand", item.productBrand)
++                .put("productDescription", item.productDescription)
++                .put("productSource", item.productSource)
++                .put("referenceSourceUrl", item.referenceSourceUrl)
++                .put("itemStatus", item.itemStatus)
++                .put("statusNote", item.statusNote)
++                .put("isFavorite", item.isFavorite)
++                .put("serialNumber", item.serialNumber)
++                .put("modelNumber", item.modelNumber)
++                .put("purchasePriceCents", item.purchasePriceCents)
++                .put("purchaseStore", item.purchaseStore)
++                .put("purchaseDate", item.purchaseDate)
++                .put("warrantyExpiration", item.warrantyExpiration)
++                .put("warrantyNote", item.warrantyNote)
++                .put("isArchived", item.isArchived)
++                .put("archivedAt", item.archivedAt)
++                .put("mediaRefs", refs))
++        }
++
++        val photosJson = JSONArray()
++        itemPhotos.forEach { photo ->
++            val sha = mediaSha(photo.photoPath)
++            // A database row whose backing photo file is already gone cannot be
++            // reproduced on another platform. Exclude that orphaned photo row from
++            // the portable snapshot so a pull can rebuild the same logical hash.
++            if (sha.isNotBlank()) {
++                photosJson.put(JSONObject()
++                    .put("id", photo.id)
++                    .put("itemId", photo.itemId)
++                    .put("position", photo.position)
++                    .put("createdAt", photo.createdAt)
++                    .put("mediaSha", sha))
++            }
++        }
++
++        val routesJson = JSONArray()
++        routes.forEach { route -> routesJson.put(JSONObject()
++            .put("normalizedName", route.normalizedName)
++            .put("boxId", route.boxId)
++            .put("updatedAt", route.updatedAt)) }
++
++        val customJson = JSONArray()
++        custom.forEach { c -> customJson.put(JSONObject()
++            .put("id", c.id).put("name", c.name).put("createdAt", c.createdAt)) }
++
++        val aliasesJson = JSONArray()
++        aliases.forEach { a -> aliasesJson.put(JSONObject()
++            .put("id", a.id).put("alias", a.alias).put("category", a.category).put("createdAt", a.createdAt)) }
++
++        val movesJson = JSONArray()
++        moves.forEach { move -> movesJson.put(JSONObject()
++            .put("id", move.id)
++            .put("itemId", move.itemId)
++            .put("fromBoxId", move.fromBoxId)
++            .put("toBoxId", move.toBoxId)
++            .put("movedAt", move.movedAt)
++            .put("reason", move.reason)) }
+++        val shoppingJson = JSONArray()
++        shopping.forEach { item -> shoppingJson.put(JSONObject()
++            .put("id", item.id)
++            .put("name", item.name)
++            .put("normalizedName", item.normalizedName)
++            .put("quantity", item.quantity)
++            .put("note", item.note)
++            .put("store", item.store)
++            .put("priority", item.priority)
++            .put("purchased", item.purchased)
++            .put("createdAt", item.createdAt)
++            .put("updatedAt", item.updatedAt)) }
++
++        val mediaJson = JSONArray()
++        mediaBySha.values.sortedBy { it.sha256 }.forEach { media ->
++            mediaJson.put(JSONObject()
++                .put("sha256", media.sha256)
++                .put("relativePath", media.relativePath)
++                .put("mimeType", media.mimeType)
++                .put("sizeBytes", media.sizeBytes))
++        }
++
++        val logical = JSONObject()
++            .put("boxes", boxesJson)
++            .put("items", itemsJson)
++            .put("itemPhotos", photosJson)
++            .put("learnedRoutes", routesJson)
++            .put("customCategories", customJson)
++            .put("categoryAliases", aliasesJson)
++            .put("moveHistory", movesJson)
++            .put("shoppingItems", shoppingJson)
++            .put("media", mediaJson)
++
++        val dataHash = sha256Hex(canonicalJson(logical).toByteArray(Charsets.UTF_8))
++        val root = JSONObject()
++            .put("product", PRODUCT)
++            .put("protocolVersion", PROTOCOL_VERSION)
++            .put("snapshotSchemaVersion", SNAPSHOT_SCHEMA_VERSION)
++            .put("snapshotId", UUID.randomUUID().toString())
++            .put("generatedAtUtc", Instant.now().toString())
++            .put("sourceDeviceId", deviceId())
++            .put("dataHash", dataHash)
++            .put("boxes", boxesJson)
++            .put("items", itemsJson)
++            .put("itemPhotos", photosJson)
++            .put("learnedRoutes", routesJson)
++            .put("customCategories", customJson)
++            .put("categoryAliases", aliasesJson)
++            .put("moveHistory", movesJson)
++            .put("shoppingItems", shoppingJson)
++            .put("media", mediaJson)
++
++        val bytes = root.toString(2).toByteArray(Charsets.UTF_8)
++        return LocalSnapshot(root, bytes, dataHash, mediaBySha.values.toList())
++    }
++
++    private suspend fun applyRemoteSnapshot(client: GitHubSyncClient, remote: RemoteSnapshot) {
++        val root = remote.root
++        val boxes = mutableListOf<BoxEntity>()
++        val items = mutableListOf<InventoryItemEntity>()
++        val itemPhotos = mutableListOf<ItemPhotoEntity>()
++        val routes = mutableListOf<LearnedRouteEntity>()
++        val custom = mutableListOf<CustomCategoryEntity>()
++        val aliases = mutableListOf<CategoryAliasEntity>()
++        val moves = mutableListOf<MoveHistoryEntity>()
++        val shopping = mutableListOf<ShoppingItemEntity>()
++        val stagingDir = File(context.cacheDir, "inventory-sync-${UUID.randomUUID()}").apply { mkdirs() }
++        val stagedBySha = mutableMapOf<String, File>()
++
++        try {
++        val boxesArray = root.getJSONArray("boxes")
++        for (i in 0 until boxesArray.length()) {
++            val o = boxesArray.getJSONObject(i)
++            val manual = o.optString("manualCategory").trim()
++            val userDescription = o.optString("userDescription")
++            val description = if (o.optString("routingMode") == "MANUAL_CATEGORY" && manual.isNotBlank()) {
++                BoxRouting.encodeManual(manual, userDescription)
++            } else {
++                BoxRouting.encodeAutomatic(userDescription)
++            }
++            val capacity = o.optString("capacityStatus", BoxCapacity.AVAILABLE)
++                .takeIf { it in BoxCapacity.levels } ?: BoxCapacity.AVAILABLE
++            boxes += BoxEntity(
++                id = o.getString("id"),
++                number = o.optInt("number", i + 1),
++                name = o.optString("name", "Box ${i + 1}"),
++                description = description,
++                qrValue = o.optString("qrValue").ifBlank { "BOXINV:${o.getString("id")}" },
++                isFull = capacity == BoxCapacity.FULL,
++                capacityStatus = capacity,
++                locationName = o.optString("locationName"),
++                areaName = o.optString("areaName")
++            )
++        }
++
++        val itemsArray = root.getJSONArray("items")
++        for (i in 0 until itemsArray.length()) {
++            val o = itemsArray.getJSONObject(i)
++            val id = o.getString("id")
++            val refs = o.optJSONObject("mediaRefs") ?: JSONObject()
++            val primary = materializeMedia(client, remote, refs.optString("primary"), "primary-$id", stagingDir, stagedBySha)
++            val original = materializeMedia(client, remote, refs.optString("original"), "original-$id", stagingDir, stagedBySha)
++            val reference = materializeMedia(client, remote, refs.optString("reference"), "reference-$id", stagingDir, stagedBySha)
++            items += InventoryItemEntity(
++                id = id,
++                name = o.optString("name"),
++                normalizedName = o.optString("normalizedName").ifBlank { normalize(o.optString("name")) },
++                category = o.optString("category"),
++                boxId = o.optString("boxId"),
++                note = o.optString("note"),
++                description = o.optString("description"),
++                quantity = o.optInt("quantity", 1).coerceAtLeast(1),
++                createdAt = o.optLong("createdAt", System.currentTimeMillis()),
++                labeledPhotoPath = primary,
++                originalPhotoPath = original,
++                aiPrimaryLabel = o.optString("aiPrimaryLabel"),
++                aiConfidence = o.optString("aiConfidence", "0").toFloatOrNull() ?: 0f,
++                aiCandidates = o.optString("aiCandidates"),
++                recognitionSource = o.optString("recognitionSource"),
++                cropLeft = o.optNullableInt("cropLeft"),
++                cropTop = o.optNullableInt("cropTop"),
++                cropRight = o.optNullableInt("cropRight"),
++                cropBottom = o.optNullableInt("cropBottom"),
++                productBarcode = o.optString("productBarcode"),
++                productBrand = o.optString("productBrand"),
++                productDescription = o.optString("productDescription"),
++                productSource = o.optString("productSource"),
++                referencePhotoPath = reference,
++                referenceSourceUrl = o.optString("referenceSourceUrl"),
++                itemStatus = o.optString("itemStatus", InventoryStatus.IN_BOX)
++                    .takeIf { it in InventoryStatus.values } ?: InventoryStatus.IN_BOX,
++                statusNote = o.optString("statusNote"),
++                isFavorite = o.optBoolean("isFavorite", false),
++                serialNumber = o.optString("serialNumber"),
++                modelNumber = o.optString("modelNumber"),
++                purchasePriceCents = o.optLong("purchasePriceCents", 0L),
++                purchaseStore = o.optString("purchaseStore"),
++                purchaseDate = o.optLong("purchaseDate", 0L),
++                warrantyExpiration = o.optLong("warrantyExpiration", 0L),
++                warrantyNote = o.optString("warrantyNote"),
++                isArchived = o.optBoolean("isArchived", false),
++                archivedAt = o.optLong("archivedAt", 0L)
++            )
++        }
++
++        val photosArray = root.getJSONArray("itemPhotos")
++        for (i in 0 until photosArray.length()) {
++            val o = photosArray.getJSONObject(i)
++            val id = o.getString("id")
++            val path = materializeMedia(client, remote, o.optString("mediaSha"), "additional-$id", stagingDir, stagedBySha)
++            if (path.isNotBlank()) {
++                itemPhotos += ItemPhotoEntity(
++                    id = id,
++                    itemId = o.getString("itemId"),
++                    photoPath = path,
++                    position = o.optInt("position", i),
++                    createdAt = o.optLong("createdAt", System.currentTimeMillis())
++                )
++            }
++        }
++
++        val routesArray = root.getJSONArray("learnedRoutes")
++        for (i in 0 until routesArray.length()) {
++            val o = routesArray.getJSONObject(i)
++            routes += LearnedRouteEntity(o.getString("normalizedName"), o.getString("boxId"), o.optLong("updatedAt"))
++        }
++
++        val customArray = root.getJSONArray("customCategories")
++        for (i in 0 until customArray.length()) {
++            val o = customArray.getJSONObject(i)
++            custom += CustomCategoryEntity(o.getString("id"), o.getString("name"), o.optLong("createdAt"))
++        }
++
++        val aliasesArray = root.getJSONArray("categoryAliases")
++        for (i in 0 until aliasesArray.length()) {
++            val o = aliasesArray.getJSONObject(i)
++            aliases += CategoryAliasEntity(o.getString("id"), o.getString("alias"), o.getString("category"), o.optLong("createdAt"))
++        }
++
++        val movesArray = root.getJSONArray("moveHistory")
++        for (i in 0 until movesArray.length()) {
++            val o = movesArray.getJSONObject(i)
++            moves += MoveHistoryEntity(
++                id = o.getString("id"),
++                itemId = o.getString("itemId"),
++                fromBoxId = o.getString("fromBoxId"),
++                toBoxId = o.getString("toBoxId"),
++                movedAt = o.optLong("movedAt"),
++                reason = o.optString("reason", "Moved")
++            )
++        }
++
++        val shoppingArray = root.getJSONArray("shoppingItems")
++        for (i in 0 until shoppingArray.length()) {
++            val o = shoppingArray.getJSONObject(i)
++            shopping += ShoppingItemEntity(
++                id = o.getString("id"),
++                name = o.getString("name"),
++                normalizedName = o.optString("normalizedName").ifBlank { normalize(o.getString("name")) },
++                quantity = o.optInt("quantity", 1).coerceAtLeast(1),
++                note = o.optString("note"),
++                store = o.optString("store"),
++                priority = o.optString("priority", "Normal"),
++                purchased = o.optBoolean("purchased", false),
++                createdAt = o.optLong("createdAt", System.currentTimeMillis()),
++                updatedAt = o.optLong("updatedAt", System.currentTimeMillis())
++            )
++        }
++
++        repository.replaceAll(boxes, items, routes, custom, aliases, moves, shopping, itemPhotos)
++        } finally {
++            stagingDir.deleteRecursively()
++        }
++    }
++
++    private fun materializeMedia(
++        client: GitHubSyncClient,
++        remote: RemoteSnapshot,
++        sha: String,
++        targetKey: String,
++        stagingDir: File,
++        stagedBySha: MutableMap<String, File>
++    ): String {
++        if (!sha.matches(SHA_REGEX)) return ""
++
++        // Remote imports use their own permanent files rather than overwriting the
++        // Android paths that the currently-active local database may still reference.
++        // If a pull fails before the database transaction, the old inventory/photos
++        // therefore remain intact; at worst an unused imported file is left behind.
++        val safeKey = targetKey.replace(Regex("[^A-Za-z0-9_.-]"), "_")
++        val importDir = File(context.filesDir, "inventory/sync_import").apply { mkdirs() }
++        val target = File(importDir, "$safeKey-$sha.jpg")
++        if (target.exists() && target.length() > 0L && cachedFileSha(target) == sha) {
++            return target.absolutePath
++        }
++
++        val staged = stagedBySha.getOrPut(sha) {
++            val remotePath = remote.mediaPaths[sha] ?: "$MEDIA_DIR/$sha.jpg"
++            val file = client.getFile(remotePath)
++                ?: error("A photo referenced by the inventory is missing from GitHub: $sha")
++            require(sha256Hex(file.bytes) == sha) { "A GitHub photo failed SHA-256 validation." }
++            File(stagingDir, "$sha.jpg").apply { writeBytes(file.bytes) }
++        }
++        val tempTarget = File(importDir, ".${target.name}.${UUID.randomUUID()}.tmp")
++        try {
++            staged.copyTo(tempTarget, overwrite = true)
++            if (target.exists()) target.delete()
++            if (!tempTarget.renameTo(target)) {
++                tempTarget.copyTo(target, overwrite = true)
++                tempTarget.delete()
++            }
++        } finally {
++            tempTarget.delete()
++        }
++        require(cachedFileSha(target) == sha) { "A downloaded photo could not be stored safely on this device." }
++        return target.absolutePath
++    }
++
++    private fun logicalObject(root: JSONObject): JSONObject = JSONObject()
++        .put("boxes", root.optJSONArray("boxes") ?: JSONArray())
++        .put("items", root.optJSONArray("items") ?: JSONArray())
++        .put("itemPhotos", root.optJSONArray("itemPhotos") ?: JSONArray())
++        .put("learnedRoutes", root.optJSONArray("learnedRoutes") ?: JSONArray())
++        .put("customCategories", root.optJSONArray("customCategories") ?: JSONArray())
++        .put("categoryAliases", root.optJSONArray("categoryAliases") ?: JSONArray())
++        .put("moveHistory", root.optJSONArray("moveHistory") ?: JSONArray())
++        .put("shoppingItems", root.optJSONArray("shoppingItems") ?: JSONArray())
++        .put("media", root.optJSONArray("media") ?: JSONArray())
++
++    private fun validateProtocol(json: JSONObject) {
++        require(json.optString("product") == PRODUCT) { "This GitHub repository is not an Inventory Box sync repository." }
++        require(json.optInt("protocolVersion") == PROTOCOL_VERSION) {
++            "Unsupported Inventory Box sync protocol version ${json.optInt("protocolVersion")}."
++        }
++        require(json.optInt("snapshotSchemaVersion") == SNAPSHOT_SCHEMA_VERSION) {
++            "Unsupported Inventory Box snapshot schema ${json.optInt("snapshotSchemaVersion")}."
++        }
++    }
++
++    private fun validateSnapshotEnvelope(root: JSONObject) {
++        validateProtocol(root)
++        require(root.optString("dataHash").matches(SHA_REGEX)) { "Inventory Box snapshot has an invalid dataHash." }
++    }
++
++    private fun recordSuccess(dataHash: String, commit: String) {
++        val now = System.currentTimeMillis()
++        prefs.edit()
++            .putString(KEY_LAST_HASH, dataHash)
++            .putString(KEY_LAST_COMMIT, commit)
++            .putLong(KEY_LAST_SUCCESS, now)
++            .apply()
++    }
++
++    private fun clearAnchors() {
++        prefs.edit()
++            .remove(KEY_LAST_HASH)
++            .remove(KEY_LAST_COMMIT)
++            .remove(KEY_LAST_SUCCESS)
++            .apply()
++    }
++
++    private fun currentConfig(): SyncConfig? {
++        val repo = repositoryFullName()
++        if (!REPOSITORY_REGEX.matches(repo)) return null
++        return SyncConfig(repo, branch())
++    }
++
++    private fun currentState(
++        phase: SyncPhase,
++        message: String,
++        localChanged: Boolean = false,
++        remoteChanged: Boolean = false,
++        remoteSnapshotAvailable: Boolean = false,
++        commit: String = prefs.getString(KEY_LAST_COMMIT, "").orEmpty()
++    ) = SyncUiState(
++        phase = phase,
++        repositoryFullName = repositoryFullName(),
++        branch = branch(),
++        hasToken = tokenStore.hasToken(),
++        lastSuccessAt = prefs.getLong(KEY_LAST_SUCCESS, 0L),
++        lastRemoteCommit = commit,
++        localChanged = localChanged,
++        remoteChanged = remoteChanged,
++        remoteSnapshotAvailable = remoteSnapshotAvailable,
++        message = message
++    )
++
++    private fun loadInitialState(): SyncUiState {
++        val repo = repositoryFullName()
++        val token = tokenStore.hasToken()
++        val configured = REPOSITORY_REGEX.matches(repo) && token
++        return SyncUiState(
++            phase = if (configured) SyncPhase.READY else SyncPhase.UNCONFIGURED,
++            repositoryFullName = repo,
++            branch = branch(),
++            hasToken = token,
++            lastSuccessAt = prefs.getLong(KEY_LAST_SUCCESS, 0L),
++            lastRemoteCommit = prefs.getString(KEY_LAST_COMMIT, "").orEmpty(),
++            message = if (configured) "GitHub sync is ready." else "GitHub sync is not configured."
++        )
++    }
++
++    private fun deviceId(): String {
++        prefs.getString(KEY_DEVICE_ID, null)?.takeIf { it.isNotBlank() }?.let { return it }
++        val id = UUID.randomUUID().toString()
++        prefs.edit().putString(KEY_DEVICE_ID, id).apply()
++        return id
++    }
++
++    private fun detectImageType(file: File): Pair<String, String> {
++        val header = ByteArray(12)
++        val count = runCatching { file.inputStream().use { it.read(header) } }.getOrDefault(0)
++        if (count >= 3 &&
++            header[0] == 0xFF.toByte() && header[1] == 0xD8.toByte() && header[2] == 0xFF.toByte()) {
++            return "image/jpeg" to "jpg"
++        }
++        if (count >= 8 &&
++            header[0] == 0x89.toByte() && header[1] == 0x50.toByte() && header[2] == 0x4E.toByte() && header[3] == 0x47.toByte()) {
++            return "image/png" to "png"
++        }
++        if (count >= 12 &&
++            String(header, 0, 4, Charsets.US_ASCII) == "RIFF" &&
++            String(header, 8, 4, Charsets.US_ASCII) == "WEBP") {
++            return "image/webp" to "webp"
++        }
++        if (count >= 6) {
++            val gif = String(header, 0, 6, Charsets.US_ASCII)
++            if (gif == "GIF87a" || gif == "GIF89a") return "image/gif" to "gif"
++        }
++        return "application/octet-stream" to "bin"
++    }
++
++    private fun cachedFileSha(file: File): String {
++        val key = "media_hash_${sha256Hex(file.absolutePath.toByteArray(Charsets.UTF_8)).take(24)}"
++        val cached = prefs.getString(key, null)?.split('|')
++        if (cached?.size == 3 &&
++            cached[0].toLongOrNull() == file.length() &&
++            cached[1].toLongOrNull() == file.lastModified() &&
++            cached[2].matches(SHA_REGEX)
++        ) return cached[2]
++        val sha = file.inputStream().use { input ->
++            val digest = MessageDigest.getInstance("SHA-256")
++            val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
++            while (true) {
++                val read = input.read(buffer)
++                if (read <= 0) break
++                digest.update(buffer, 0, read)
++            }
++            digest.digest().toHex()
++        }
++        prefs.edit().putString(key, "${file.length()}|${file.lastModified()}|$sha").apply()
++        return sha
++    }
++
++    private fun canonicalJson(value: Any?): String = when (value) {
++        null, JSONObject.NULL -> "null"
++        is JSONObject -> {
++            val keys = buildList {
++                val iterator = value.keys()
++                while (iterator.hasNext()) add(iterator.next())
++            }.sorted()
++            keys.joinToString(prefix = "{", postfix = "}") { key ->
++                JSONObject.quote(key) + ":" + canonicalJson(value.get(key))
++            }
++        }
++        is JSONArray -> (0 until value.length()).joinToString(prefix = "[", postfix = "]") { index ->
++            canonicalJson(value.get(index))
++        }
++        is String -> JSONObject.quote(value)
++        is Boolean -> value.toString()
++        is Number -> value.toString()
++        else -> JSONObject.quote(value.toString())
++    }
++
++    private fun safeErrorMessage(error: Throwable): String = when (error) {
++        is GitHubApiException -> when (error.statusCode) {
++            401 -> "GitHub rejected the token. Check the saved token and try again."
++            403 -> "GitHub denied access. The token needs access to this repository and Contents read/write permission."
++            404 -> "GitHub could not find that repository, branch, or file. Check the repository name and token access."
++            409 -> "GitHub could not update the repository because it changed during sync. Run Sync now again."
++            422 -> "GitHub rejected the update. The repository may have changed during sync; run Sync now again."
++            else -> error.message ?: "GitHub sync failed."
++        }
++        else -> error.message?.takeIf { it.isNotBlank() } ?: "GitHub sync failed."
++    }
++
++    private fun normalize(value: String) = value.trim().lowercase().replace(Regex("\\s+"), " ")
++
++    private fun JSONObject.putNullable(key: String, value: Int?): JSONObject =
++        put(key, value ?: JSONObject.NULL)
++
++    private fun JSONObject.optNullableInt(key: String): Int? =
++        if (!has(key) || isNull(key)) null else optInt(key)
++
++    private fun sha256Hex(bytes: ByteArray): String =
++        MessageDigest.getInstance("SHA-256").digest(bytes).toHex()
++
++    private fun ByteArray.toHex(): String = joinToString("") { "%02x".format(it) }
++
++    private companion object {
++        const val PREFS = "box_inventory_sync"
++        const val KEY_REPOSITORY = "repository"
++        const val KEY_BRANCH = "branch"
++        const val KEY_DEVICE_ID = "device_id"
++        const val KEY_LAST_HASH = "last_data_hash"
++        const val KEY_LAST_COMMIT = "last_remote_commit"
++        const val KEY_LAST_SUCCESS = "last_success"
++        const val DEFAULT_BRANCH = "main"
++        const val PRODUCT = "Inventory Box"
++        const val PROTOCOL_VERSION = 1
++        const val SNAPSHOT_SCHEMA_VERSION = 1
++        const val PROTOCOL_PATH = "inventory-sync/protocol.json"
++        const val SNAPSHOT_PATH = "inventory-sync/current/snapshot.json"
++        const val MEDIA_DIR = "inventory-sync/media"
++        const val MAX_SYNC_MEDIA_BYTES = 50L * 1024L * 1024L
++        val REPOSITORY_REGEX = Regex("^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
++        val SHA_REGEX = Regex("^[a-f0-9]{64}$")
++    }
++}
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/SecureTokenStore.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/SecureTokenStore.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/SecureTokenStore.kt	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/SecureTokenStore.kt	2026-09-28 06:03:40.545530316 +0000
+@@ -0,0 +1,76 @@
++package com.aiboxinventory.app.sync
++
++import android.content.Context
++import android.security.keystore.KeyGenParameterSpec
++import android.security.keystore.KeyProperties
++import android.util.Base64
++import java.security.KeyStore
++import javax.crypto.Cipher
++import javax.crypto.KeyGenerator
++import javax.crypto.SecretKey
++import javax.crypto.spec.GCMParameterSpec
++
++class SecureTokenStore(context: Context) {
++    private val prefs = context.getSharedPreferences("box_inventory_sync_secret", Context.MODE_PRIVATE)
++
++    fun hasToken(): Boolean = prefs.contains(KEY_CIPHERTEXT) && load().isNullOrBlank().not()
++
++    fun save(token: String) {
++        val clean = token.trim()
++        if (clean.isBlank()) {
++            clear()
++            return
++        }
++        val cipher = Cipher.getInstance(TRANSFORMATION)
++        cipher.init(Cipher.ENCRYPT_MODE, getOrCreateKey())
++        val ciphertext = cipher.doFinal(clean.toByteArray(Charsets.UTF_8))
++        prefs.edit()
++            .putString(KEY_CIPHERTEXT, Base64.encodeToString(ciphertext, Base64.NO_WRAP))
++            .putString(KEY_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
++            .apply()
++    }
++
++    fun load(): String? {
++        val encoded = prefs.getString(KEY_CIPHERTEXT, null) ?: return null
++        val encodedIv = prefs.getString(KEY_IV, null) ?: return null
++        return runCatching {
++            val cipher = Cipher.getInstance(TRANSFORMATION)
++            cipher.init(
++                Cipher.DECRYPT_MODE,
++                getOrCreateKey(),
++                GCMParameterSpec(128, Base64.decode(encodedIv, Base64.NO_WRAP))
++            )
++            String(cipher.doFinal(Base64.decode(encoded, Base64.NO_WRAP)), Charsets.UTF_8)
++        }.getOrElse {
++            clear()
++            null
++        }
++    }
++
++    fun clear() {
++        prefs.edit().remove(KEY_CIPHERTEXT).remove(KEY_IV).apply()
++    }
++
++    private fun getOrCreateKey(): SecretKey {
++        val keyStore = KeyStore.getInstance("AndroidKeyStore").apply { load(null) }
++        (keyStore.getKey(KEY_ALIAS, null) as? SecretKey)?.let { return it }
++        val generator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
++        generator.init(
++            KeyGenParameterSpec.Builder(
++                KEY_ALIAS,
++                KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
++            )
++                .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
++                .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
++                .build()
++        )
++        return generator.generateKey()
++    }
++
++    private companion object {
++        const val KEY_ALIAS = "box_inventory_github_sync_token"
++        const val TRANSFORMATION = "AES/GCM/NoPadding"
++        const val KEY_CIPHERTEXT = "token_ciphertext"
++        const val KEY_IV = "token_iv"
++    }
++}
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/SyncState.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/SyncState.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/sync/SyncState.kt	1970-01-01 00:00:00.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/sync/SyncState.kt	2026-09-28 06:20:46.463820642 +0000
+@@ -0,0 +1,34 @@
++package com.aiboxinventory.app.sync
++
++enum class SyncPhase {
++    UNCONFIGURED,
++    READY,
++    SYNCING,
++    SYNCED,
++    FIRST_SYNC_REQUIRED,
++    CONFLICT,
++    ERROR
++}
++
++enum class SyncResolution {
++    USE_REMOTE,
++    KEEP_LOCAL
++}
++
++data class SyncConfig(
++    val repositoryFullName: String,
++    val branch: String = "main"
++)
++
++data class SyncUiState(
++    val phase: SyncPhase = SyncPhase.UNCONFIGURED,
++    val repositoryFullName: String = "",
++    val branch: String = "main",
++    val hasToken: Boolean = false,
++    val lastSuccessAt: Long = 0L,
++    val lastRemoteCommit: String = "",
++    val localChanged: Boolean = false,
++    val remoteChanged: Boolean = false,
++    val remoteSnapshotAvailable: Boolean = false,
++    val message: String = "GitHub sync is not configured."
++)
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt	2026-09-21 23:02:42.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/ui/AIBoxRoot.kt	2026-09-28 06:21:00.873078911 +0000
+@@ -117,6 +117,7 @@
+ import androidx.compose.ui.input.pointer.pointerInput
+ import androidx.compose.ui.res.painterResource
+ import androidx.compose.ui.text.font.FontWeight
++import androidx.compose.ui.text.input.PasswordVisualTransformation
+ import androidx.compose.ui.unit.dp
+ import androidx.compose.ui.unit.IntOffset
+ import androidx.compose.ui.window.Dialog
+@@ -141,6 +142,7 @@
+ import com.aiboxinventory.app.export.BoxContentsExporter
+ import com.aiboxinventory.app.qr.QrGenerator
+ import com.aiboxinventory.app.qr.QrLabelExporter
++import com.aiboxinventory.app.sync.SyncPhase
+ import java.io.File
+ import kotlin.math.abs
+ import kotlin.math.roundToInt
+@@ -294,6 +296,13 @@
+         TutorialStep("box_audit", "Review the result", "Tap Review audit result to see expected, found, and not-found counts. Not-found items are never marked Missing automatically; you must confirm Mark missing for each one you want to change."),
+         TutorialStep("box_audit", "Test the audit", "For testing, leave at least one checklist item unchecked and confirm the summary reports it as not found without changing its status. Then either mark it Missing deliberately or go back and check it Found before finishing.")
+     )),
++    TutorialGuide("shared_sync", "Shared Android/Windows inventory", "Keep the same inventory on Android and Windows through a private GitHub data repository.", "settings", listOf(
++        TutorialStep("nav_settings", "Create the private sync repository", "Use a separate private GitHub repository for inventory data and photos. Initialize it with a README so the main branch exists. Do not use the Android/Windows source repository as the runtime inventory database."),
++        TutorialStep("nav_settings", "Configure Android", "In Settings → Shared inventory sync, enter owner/repository, the branch (normally main), and a fine-grained GitHub token that can read and write Contents for only that private repository. The token is encrypted in Android Keystore-backed storage and is never written into the shared inventory files."),
++        TutorialStep("nav_settings", "Save and sync", "Tap Save & sync now. On a new empty sync repository, Android publishes the current inventory and photos. On later runs, the app compares the local data hash with the GitHub snapshot and transfers data only when something changed."),
++        TutorialStep("nav_settings", "First-sync choice and conflicts", "If GitHub already contains an Inventory Box snapshot, Android asks which copy should be used for the first sync. If both Android and GitHub later change before syncing, the app stops with Conflict instead of silently overwriting either copy."),
++        TutorialStep("nav_settings", "Test cross-platform sync", "Once the Windows version implements the same protocol, add or edit one item on one platform, sync it, then Sync now on the other platform and confirm the same item data and photos appear. Run Sync now again without changing anything and confirm the status says no inventory or photo transfer was needed.")
++    )),
+     TutorialGuide("app_navigation", "Back navigation", "Use Android Back naturally without accidentally leaving the app.", "find", listOf(
+         TutorialStep("nav_find", "Android Back", "The phone's Back control now returns one logical level first: Item Details closes, an opened box collapses, and active Find searches/filters clear before leaving Find. From a main tab, Back returns Home. Back from Home exits the app."),
+         TutorialStep("nav_find", "System Home and Recents", "Your phone's Home and Recents controls always belong to Android. They stay available; Box Inventory keeps its own bottom navigation above the system navigation area."),
+@@ -3819,6 +3828,13 @@
+     val categoryOptions by vm.categoryOptions.collectAsState()
+     val categoryAliases by vm.categoryAliases.collectAsState()
+     val organizationPlan by vm.organizationPlan.collectAsState()
++    val syncState by vm.syncState.collectAsState()
++    var syncRepository by remember { mutableStateOf(syncState.repositoryFullName) }
++    var syncBranch by remember { mutableStateOf(syncState.branch.ifBlank { "main" }) }
++    var syncToken by remember { mutableStateOf("") }
++    var confirmUseRemote by remember { mutableStateOf(false) }
++    var confirmKeepLocal by remember { mutableStateOf(false) }
++    var confirmDisconnectSync by remember { mutableStateOf(false) }
+     var manageBoxes by remember { mutableStateOf(false) }
+     var pendingRestoreUri by remember { mutableStateOf<android.net.Uri?>(null) }
+     var newCategory by remember { mutableStateOf("") }
+@@ -4062,6 +4078,130 @@
+             elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+         ) {
+             Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
++                Text("Shared inventory sync", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
++                Text(
++                    "Android and Windows keep their own local databases. A separate private GitHub repository is the shared sync layer for inventory data and photos.",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant
++                )
++                Surface(
++                    shape = RoundedCornerShape(16.dp),
++                    color = when (syncState.phase) {
++                        SyncPhase.ERROR, SyncPhase.CONFLICT -> MaterialTheme.colorScheme.errorContainer.copy(alpha = 0.65f)
++                        SyncPhase.SYNCED -> MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.65f)
++                        else -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.55f)
++                    }
++                ) {
++                    Column(Modifier.fillMaxWidth().padding(10.dp), verticalArrangement = Arrangement.spacedBy(3.dp)) {
++                        Text(
++                            when (syncState.phase) {
++                                SyncPhase.UNCONFIGURED -> "Not configured"
++                                SyncPhase.READY -> "Ready"
++                                SyncPhase.SYNCING -> "Syncing…"
++                                SyncPhase.SYNCED -> "Synced"
++                                SyncPhase.FIRST_SYNC_REQUIRED -> "First sync needs a choice"
++                                SyncPhase.CONFLICT -> "Sync conflict"
++                                SyncPhase.ERROR -> "Sync error"
++                            },
++                            fontWeight = FontWeight.SemiBold
++                        )
++                        Text(syncState.message, style = MaterialTheme.typography.bodySmall)
++                        if (syncState.lastSuccessAt > 0L) {
++                            Text(
++                                "Last successful sync: ${DateFormat.getDateTimeInstance(DateFormat.SHORT, DateFormat.SHORT).format(Date(syncState.lastSuccessAt))}",
++                                style = MaterialTheme.typography.labelSmall,
++                                color = MaterialTheme.colorScheme.onSurfaceVariant
++                            )
++                        }
++                    }
++                }
++                OutlinedTextField(
++                    value = syncRepository,
++                    onValueChange = { syncRepository = it },
++                    modifier = Modifier.fillMaxWidth(),
++                    label = { Text("Private GitHub repository") },
++                    placeholder = { Text("owner/repository") },
++                    singleLine = true
++                )
++                OutlinedTextField(
++                    value = syncBranch,
++                    onValueChange = { syncBranch = it },
++                    modifier = Modifier.fillMaxWidth(),
++                    label = { Text("Branch") },
++                    placeholder = { Text("main") },
++                    singleLine = true
++                )
++                OutlinedTextField(
++                    value = syncToken,
++                    onValueChange = { syncToken = it },
++                    modifier = Modifier.fillMaxWidth(),
++                    label = { Text(if (syncState.hasToken) "GitHub token (saved — leave blank to keep)" else "GitHub token") },
++                    visualTransformation = PasswordVisualTransformation(),
++                    singleLine = true
++                )
++                Text(
++                    "Use a fine-grained token limited to this private repository with Contents read/write permission. The token stays on this device and is encrypted before storage.",
++                    style = MaterialTheme.typography.bodySmall,
++                    color = MaterialTheme.colorScheme.onSurfaceVariant
++                )
++                Button(
++                    onClick = {
++                        vm.saveSyncConfiguration(syncRepository, syncBranch, syncToken)
++                        syncToken = ""
++                    },
++                    modifier = Modifier.fillMaxWidth(),
++                    enabled = syncState.phase != SyncPhase.SYNCING && syncRepository.isNotBlank() && (syncToken.isNotBlank() || syncState.hasToken)
++                ) { Text("Save & sync now") }
++                OutlinedButton(
++                    onClick = vm::syncNow,
++                    modifier = Modifier.fillMaxWidth(),
++                    enabled = syncState.phase != SyncPhase.SYNCING && syncState.repositoryFullName.isNotBlank() && syncState.hasToken
++                ) { Text("Sync now") }
++
++                if (syncState.phase == SyncPhase.FIRST_SYNC_REQUIRED || syncState.phase == SyncPhase.CONFLICT) {
++                    Text(
++                        when {
++                            syncState.phase == SyncPhase.FIRST_SYNC_REQUIRED ->
++                                "Choose carefully: this decides which complete inventory becomes the synchronized starting point."
++                            !syncState.remoteSnapshotAvailable ->
++                                "The GitHub snapshot is missing. Nothing was overwritten. Keep this device can safely recreate it after confirmation."
++                            else ->
++                                "Both copies changed. Nothing is overwritten until you choose a side."
++                        },
++                        style = MaterialTheme.typography.bodySmall,
++                        color = MaterialTheme.colorScheme.error
++                    )
++                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
++                        if (syncState.remoteSnapshotAvailable) {
++                            OutlinedButton(onClick = { confirmUseRemote = true }, modifier = Modifier.weight(1f)) {
++                                Text("Use GitHub")
++                            }
++                        }
++                        Button(onClick = { confirmKeepLocal = true }, modifier = Modifier.weight(1f)) {
++                            Text("Keep this device")
++                        }
++                    }
++                }
++
++                TextButton(onClick = { onStartTutorial("shared_sync") }, modifier = Modifier.fillMaxWidth()) {
++                    Text("How shared sync works")
++                }
++                if (syncState.hasToken) {
++                    TextButton(onClick = vm::clearSyncToken, modifier = Modifier.fillMaxWidth()) { Text("Clear saved token") }
++                }
++                if (syncState.repositoryFullName.isNotBlank()) {
++                    TextButton(onClick = { confirmDisconnectSync = true }, modifier = Modifier.fillMaxWidth()) { Text("Disconnect shared sync") }
++                }
++            }
++        }
++
++        Card(
++            modifier = Modifier.fillMaxWidth(),
++            shape = RoundedCornerShape(26.dp),
++            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.96f)),
++            elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
++        ) {
++            Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                 Text("Backup & restore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                 Button(onClick = { exportLauncher.launch("Box_Inventory.boxbackup") }, modifier = Modifier.fillMaxWidth()) { Text("Create backup") }
+                 OutlinedButton(onClick = { importLauncher.launch(arrayOf("application/zip", "application/octet-stream", "*/*")) }, modifier = Modifier.fillMaxWidth()) { Text("Restore backup") }
+@@ -4082,6 +4222,48 @@
+         }
+     }
+ 
++    if (confirmUseRemote) {
++        AlertDialog(
++            onDismissRequest = { confirmUseRemote = false },
++            title = { Text("Use GitHub inventory?") },
++            text = { Text("This replaces the shared inventory records on this Android device with the GitHub snapshot. Local unsynced record changes will be discarded. Photos already on the device are not deliberately deleted, but the database will follow GitHub.") },
++            confirmButton = {
++                Button(onClick = { confirmUseRemote = false; vm.resolveSyncUseRemote() }) { Text("Use GitHub") }
++            },
++            dismissButton = { TextButton(onClick = { confirmUseRemote = false }) { Text("Cancel") } }
++        )
++    }
++
++    if (confirmKeepLocal) {
++        AlertDialog(
++            onDismissRequest = { confirmKeepLocal = false },
++            title = { Text("Keep this device inventory?") },
++            text = { Text("This publishes the complete Android inventory as the current GitHub snapshot. Any different unsynced GitHub snapshot will be replaced. Missing photo blobs are uploaded first.") },
++            confirmButton = {
++                Button(onClick = { confirmKeepLocal = false; vm.resolveSyncKeepLocal() }) { Text("Keep this device") }
++            },
++            dismissButton = { TextButton(onClick = { confirmKeepLocal = false }) { Text("Cancel") } }
++        )
++    }
++
++    if (confirmDisconnectSync) {
++        AlertDialog(
++            onDismissRequest = { confirmDisconnectSync = false },
++            title = { Text("Disconnect shared sync?") },
++            text = { Text("This removes the saved repository settings and GitHub token from this device. Your local inventory is not deleted, and nothing is deleted from GitHub.") },
++            confirmButton = {
++                Button(onClick = {
++                    confirmDisconnectSync = false
++                    vm.clearSyncConfiguration()
++                    syncRepository = ""
++                    syncBranch = "main"
++                    syncToken = ""
++                }) { Text("Disconnect") }
++            },
++            dismissButton = { TextButton(onClick = { confirmDisconnectSync = false }) { Text("Cancel") } }
++        )
++    }
++
+     if (tutorialLibraryOpen) {
+         Dialog(onDismissRequest = { tutorialLibraryOpen = false }) {
+             Card(Modifier.fillMaxWidth().fillMaxSize(0.94f)) {
+@@ -4151,6 +4333,8 @@
+                     Text("Archive removes an item from your current boxes and normal inventory views but keeps a recoverable record. Find → Archived lets you restore it later. Permanent Delete erases it completely.")
+                     Text("Photos", fontWeight = FontWeight.Bold)
+                     Text("Each item has one main photo and can keep up to 10 additional angles for labels, backs, sides, model numbers, or other useful details.")
++                    Text("Shared inventory sync", fontWeight = FontWeight.Bold)
++                    Text("Settings → Shared inventory sync connects Android to a separate private GitHub data repository used by both Android and Windows. Startup and five-minute active-use checks compare hashes first; if neither side changed, no inventory or photo payload is transferred. If both sides changed before syncing, Box Inventory stops with a conflict instead of overwriting either copy.")
+                     Text("Boxes", fontWeight = FontWeight.Bold)
+                     Text("Boxes can share a category. Capacity runs from Available to Full. Full boxes keep their contents but do not receive new automatic assignments.")
+                     Text("Box audit", fontWeight = FontWeight.Bold)
+diff -ruN /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt
+--- /mnt/data/inventory_v29_base/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt	2026-09-21 22:35:59.000000000 +0000
++++ /mnt/data/inventory_v29/app/src/main/java/com/aiboxinventory/app/ui/AppViewModel.kt	2026-09-28 06:07:06.695209117 +0000
+@@ -21,6 +21,7 @@
+ import com.aiboxinventory.app.data.ItemPhotoEntity
+ import com.aiboxinventory.app.data.InventoryStatus
+ import com.aiboxinventory.app.data.ShoppingItemEntity
++import com.aiboxinventory.app.sync.SyncResolution
+ import com.google.mlkit.vision.common.InputImage
+ import kotlinx.coroutines.Dispatchers
+ import kotlinx.coroutines.flow.MutableStateFlow
+@@ -177,12 +178,22 @@
+     private val _appearance = MutableStateFlow(settings.getString("appearance", "light") ?: "light")
+     val appearance = _appearance.asStateFlow()
+ 
++    val syncState = container.syncService.state
++
+     private var productNextOffset = 0
+     private var reviewPlacementJob: Job? = null
+     private val bulkPlacementJobs = mutableMapOf<Int, Job>()
+ 
+     init {
+-        viewModelScope.launch { container.repository.ensureDefaultBoxes() }
++        viewModelScope.launch {
++            container.repository.ensureDefaultBoxes()
++            delay(1_500)
++            container.syncService.syncNow()
++            while (true) {
++                delay(5 * 60_000L)
++                container.syncService.syncNow()
++            }
++        }
+         viewModelScope.launch {
+             combine(container.repository.inventory, container.repository.boxes, container.repository.shoppingItems) { _, _, _ -> Unit }
+                 .collect { WidgetUpdater.request(container.app) }
+@@ -193,6 +204,37 @@
+         _message.value = null
+     }
+ 
++    fun saveSyncConfiguration(repository: String, branch: String, token: String) {
++        runCatching { container.syncService.saveConfiguration(repository, branch, token) }
++            .onSuccess {
++                _message.value = "GitHub sync settings saved."
++                viewModelScope.launch { container.syncService.syncNow() }
++            }
++            .onFailure { _message.value = it.message ?: "Could not save sync settings." }
++    }
++
++    fun syncNow() = viewModelScope.launch {
++        container.syncService.syncNow()
++    }
++
++    fun resolveSyncUseRemote() = viewModelScope.launch {
++        container.syncService.syncNow(SyncResolution.USE_REMOTE)
++    }
++
++    fun resolveSyncKeepLocal() = viewModelScope.launch {
++        container.syncService.syncNow(SyncResolution.KEEP_LOCAL)
++    }
++
++    fun clearSyncToken() {
++        container.syncService.clearToken()
++        _message.value = "Saved GitHub token cleared."
++    }
++
++    fun clearSyncConfiguration() {
++        container.syncService.clearConfiguration()
++        _message.value = "GitHub sync disconnected. Your local inventory was not changed."
++    }
++
+     fun addShoppingItem(name: String, quantity: Int = 1, note: String = "", store: String = "", priority: String = "Normal") = viewModelScope.launch {
+         runCatching { container.repository.addShoppingItem(name, quantity, note, store, priority) }
+             .onSuccess { _message.value = "Added to shopping list." }
