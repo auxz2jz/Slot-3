@@ -47,6 +47,18 @@ Incremental WIP2 patch:
 Incremental patch SHA-256:
 `0ae88f2671837942cb2fdbffc25269e683beda6a99f8c23bab4daa3a77a99630`
 
+Reviewed WIP3 artifact:
+`BoxInventoryAndroid_v0.30.0_WIP3_MediaSafety_Checkpoint.zip`
+
+Reviewed WIP3 SHA-256:
+`7a2d03bfbc5d2ae2461df76ffa39f71b6182195ceb46bd80b6068b6fdddafdf1`
+
+WIP2 → WIP3 patch:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP3_MediaSafety_from_WIP2.patch`
+
+Local WIP3 patch SHA-256:
+`c167108c9d6ecc0c35afafd0d5cb81beec9616ebff4e619458657b1c17af8785`
+
 Current v0.30 work adds the Android side of **Inventory Sync Protocol v1** without moving, renaming, reorganizing, or rewriting the established Android application merely for cross-platform cleanliness.
 
 Implemented in the checkpoint:
@@ -61,6 +73,7 @@ Implemented in the checkpoint:
 - SHA-256 content-addressed photo/media storage and deduplication;
 - photo hash validation before remote data is applied;
 - pre-pull Room-state preservation and automatic rollback if post-apply logical-hash reproduction fails;
+- remote media-table/reference validation, strict protocol media paths, duplicate rejection, and bounded 50 MiB media downloads;
 - first-sync protection when remote data already exists;
 - explicit conflict state when both local and remote inventory changed;
 - explicit **Use GitHub** / **Keep this device** resolution;
@@ -79,7 +92,7 @@ Static review result: the complete new sync package passes Kotlin type/signature
 
 ## Current Android task
 
-Build the reviewed v0.30 WIP2 with a real Android Gradle toolchain, fix only evidence-based build issues if any, and present the resulting Android candidate for testing. Do not modify the Windows implementation.
+Build the reviewed v0.30 WIP3 with a real Android Gradle toolchain, fix only evidence-based build issues if any, and present the resulting Android candidate for testing. Do not modify the Windows implementation.
 
 ## Ownership boundary
 
