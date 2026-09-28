@@ -36,7 +36,7 @@ Android implementation goals:
 
 ## Next steps
 
-1. Resume from the reviewed v0.30 WIP3 media-safety checkpoint.
+1. Resume from the reviewed v0.30 WIP4 foreground-sync checkpoint.
 2. Run the full Android Gradle build with a real Android toolchain; local sync-package type/signature checks already pass.
 3. Fix only evidence-based Android build issues.
 4. Produce a v0.30 candidate.
