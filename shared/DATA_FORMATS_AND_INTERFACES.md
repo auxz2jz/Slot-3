@@ -253,7 +253,15 @@ Portable fields:
 
 The media table is deduplicated by SHA-256. Multiple item/photo references may point to the same media SHA.
 
-Current Android protocol implementation rejects a single synchronization media file larger than 50 MiB.
+Protocol-v1 media requirements:
+
+- each SHA-256 identity appears at most once in the `media` array;
+- `relativePath` must be `inventory-sync/media/<same-sha256>.<extension>`, with a simple alphanumeric extension;
+- `mimeType` must be present and non-blank;
+- `sizeBytes` must be greater than zero and no more than 50 MiB so every protocol-v1 client remains compatible with the Android implementation;
+- every non-empty `mediaRefs` value and every additional-photo `mediaSha` must have a matching declared media entry;
+- clients must not invent or guess a fallback path for an undeclared media reference;
+- downloaded bytes must still be verified against the declared SHA-256 before apply.
 
 ## Local-only information
 
