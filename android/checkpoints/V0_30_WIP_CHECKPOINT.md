@@ -125,3 +125,29 @@ Additional hardening:
 Shared media-contract commit: `d2fdaa6598dcc6688df620db6ab44f197ea9f9b2`.
 
 Full Android Gradle/APK build remains pending because the complete Android source is artifact-based rather than checked into Slot-3 and this execution environment cannot download the required Gradle/Android toolchain. WIP3 remains unverified.
+
+## Reviewed WIP4 foreground sync checkpoint
+
+Status: **IN PROGRESS / NOT VERIFIED**
+
+Artifact:
+`BoxInventoryAndroid_v0.30.0_WIP4_ForegroundSync_Checkpoint.zip`
+
+SHA-256:
+`b506512dcc17336a53dd30e0419ed4a7f1a7edda44b4dc07ab2530f42745ae16`
+
+Incremental patch from WIP3:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP4_ForegroundSync_from_WIP3.patch`
+
+Local incremental patch SHA-256:
+`97083519c1235530e3da2aa1bed8e090d6ac8d4f13fc84283d29d48553f89625`
+
+Additional hardening:
+- startup/periodic automatic sync waits until local default data is ready;
+- periodic checking is tied to active foreground lifecycle rather than ViewModel lifetime;
+- leaving the foreground stops future periodic scheduling;
+- returning to active use performs a fresh sync check and resumes the five-minute cycle;
+- cancellation of a foreground automatic check is treated as paused work rather than a false sync error;
+- manual Sync now remains independent.
+
+The sync package continues to pass local Kotlin type/signature checks. Full Android Gradle/APK build remains pending; v0.29 remains the protected VERIFIED baseline and WIP4 is not VERIFIED.
