@@ -69,3 +69,31 @@ See `shared/DATA_FORMATS_AND_INTERFACES.md`.
 ## Exact recovery action
 
 If the v0.30 work fails or becomes confused, return to v0.29 verified source. Do not promote v0.30 to VERIFIED until the user explicitly confirms it.
+
+## Reviewed WIP2 safety checkpoint
+
+Status: **IN PROGRESS / NOT VERIFIED**
+
+Artifact:
+`BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety_Checkpoint.zip`
+
+SHA-256:
+`ddafd842c665300c88d39e9ccbe653fa63fe01e818ed8cf11b2da0c921d1353f`
+
+Incremental patch from the original v0.30 handoff:
+`android/checkpoints/BoxInventoryAndroid_v0.30.0_WIP2_SyncSafety.patch`
+
+Incremental patch SHA-256:
+`0ae88f2671837942cb2fdbffc25269e683beda6a99f8c23bab4daa3a77a99630`
+
+Review hardening:
+- remote pulls preserve the complete pre-pull Room record set until Android reproduces the remote logical hash;
+- failed post-apply reproduction restores the previous Android records rather than leaving the failed remote state active;
+- the shared protocol defines exact canonical ordering for every logical array so Android and Windows hash the same record order;
+- the new sync package passed Kotlin type/signature compilation against local Android/data interface stubs.
+
+Build status:
+- full Android Gradle/APK build is still pending;
+- the review environment did not have Gradle 9.1/Android dependencies cached and could not download them.
+
+Exact next action: build WIP2 with a real Android Gradle toolchain, then fix only actual build/test evidence before producing the device-test candidate.
