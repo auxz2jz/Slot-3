@@ -71,6 +71,10 @@ WIP2 review result:
 - the complete sync package passes Kotlin type/signature compilation against local Android/data interface stubs;
 - full Gradle/APK build remains pending because the review environment lacks the Gradle 9.1/Android dependency cache and cannot download it.
 
+Shared protocol hardening commits:
+- `e64607b2636acb60cae7e7dc3370fa9dac53167d` — canonical array ordering and failed-pull safety requirement;
+- `8b009958890cef93afe84f4f056158d9c51c0489` — explicit protocol-v1 field/scalar types for cross-platform hash parity.
+
 Purpose: implement the Android side of shared Android/Windows inventory synchronization through a user-configured private GitHub runtime data repository.
 
 Changed/added Android source in the checkpoint includes:
